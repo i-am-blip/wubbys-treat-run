@@ -1,1 +1,3 @@
 /BACKGROUND_FEATURES.md
+.venv/
+__pycache__/

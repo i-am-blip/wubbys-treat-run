@@ -1,0 +1,158 @@
+{
+ "image": "tiles_kitchen.png",
+ "tile": 18,
+ "tiles": {
+  "ground_left": {
+   "x": 0,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid0": {
+   "x": 18,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid1": {
+   "x": 36,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_right": {
+   "x": 54,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_fill": {
+   "x": 72,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_left": {
+   "x": 90,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_mid0": {
+   "x": 108,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_right": {
+   "x": 126,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_single": {
+   "x": 144,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  }
+ },
+ "props": [
+  {
+   "x": 3,
+   "y": 23,
+   "w": 13,
+   "h": 15,
+   "source": 6
+  },
+  {
+   "x": 21,
+   "y": 26,
+   "w": 15,
+   "h": 12,
+   "source": 7
+  },
+  {
+   "x": 39,
+   "y": 27,
+   "w": 16,
+   "h": 11,
+   "source": 8
+  },
+  {
+   "x": 58,
+   "y": 19,
+   "w": 17,
+   "h": 19,
+   "source": 9
+  },
+  {
+   "x": 79,
+   "y": 24,
+   "w": 12,
+   "h": 14,
+   "source": 10
+  },
+  {
+   "x": 97,
+   "y": 26,
+   "w": 14,
+   "h": 12,
+   "source": 11
+  },
+  {
+   "x": 116,
+   "y": 27,
+   "w": 15,
+   "h": 11,
+   "source": 12
+  },
+  {
+   "x": 135,
+   "y": 27,
+   "w": 14,
+   "h": 11,
+   "source": 14
+  },
+  {
+   "x": 3,
+   "y": 41,
+   "w": 12,
+   "h": 18,
+   "source": 16
+  },
+  {
+   "x": 20,
+   "y": 45,
+   "w": 16,
+   "h": 14,
+   "source": 17
+  },
+  {
+   "x": 40,
+   "y": 52,
+   "w": 14,
+   "h": 7,
+   "source": 20
+  }
+ ],
+ "roles": {
+  "ground": {
+   "left": "ground_left",
+   "right": "ground_right",
+   "mid": [
+    "ground_mid0",
+    "ground_mid1"
+   ],
+   "fill": "ground_fill"
+  },
+  "platform": {
+   "left": "platform_left",
+   "right": "platform_right",
+   "mid": [
+    "platform_mid0"
+   ],
+   "single": "platform_single"
+  }
+ }
+}

@@ -3,44 +3,118 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Endless Pixel Runner - How Far Can You Go?</title>
-    <meta name="description" content="An endless runner platformer game - jump, dodge, and survive as long as you can!">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wubby's Treat Run</title>
+    <meta name="description" content="A squirrel stole Wubby's treat! Chase it through three levels, get the treat back and share your reward card.">
+    <link rel="stylesheet" href="public/assets/game/ui.css">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- HUD Overlay -->
-    <div class="hud">
-        <div class="hud-top">
-            <div class="score-display">
-                <div class="score-label">DISTANCE</div>
-                <div id="score" class="score-value">0</div>
+    <!-- HUD -->
+    <div id="hud" class="hud hidden">
+        <div class="hud-row">
+            <div class="hud-left">
+                <div class="ui-panelS hud-panel" id="hearts" aria-label="Hearts"></div>
+                <div class="ui-panelS hud-panel" title="Bones collected in this level"><span class="ui-icon-bone" role="img" aria-label="Bones"></span><span id="bones" class="hud-text">0/0</span></div>
+                <div class="ui-panelS hud-panel" title="Golden bones"><span class="ui-icon-golden" role="img" aria-label="Golden bones"></span><span id="goldens" class="hud-text">0/9</span></div>
             </div>
-            <div class="speed-display">
-                <div class="speed-label">SPEED</div>
-                <div id="speed" class="speed-value">1.0x</div>
+            <!-- Journey progress across all levels -->
+            <div class="journey" aria-label="Journey progress">
+                <div class="journey-bar">
+                    <div class="ui-bar-track journey-track">
+                        <div class="journey-inner" id="journeyInner">
+                            <div class="ui-bar-fill journey-fill hidden" id="journeyFill"></div>
+                            <span class="ui-bar-wubby journey-wubby" id="journeyWubby"></span>
+                        </div>
+                    </div>
+                    <div class="journey-labels" id="journeyLabels"></div>
+                </div>
+                <span class="journey-thief ui-bar-thief" id="journeyThief" title="The thief"></span>
             </div>
-        </div>
-        <div class="lives-display">
-            <span id="lives">❤️❤️❤️</span>
+            <div class="hud-buttons">
+                <button id="muteBtn" class="icon-btn ui-btn-sound-on" aria-label="Toggle sound"></button>
+                <button id="pauseBtn" class="icon-btn ui-btn-pause" aria-label="Pause"></button>
+            </div>
         </div>
     </div>
 
-    <!-- Game Over Screen -->
-    <div id="gameOverScreen" class="game-over-screen hidden">
-        <div class="game-over-content">
-            <h1 class="game-over-title">GAME OVER</h1>
-            <div class="final-stats">
-                <p class="stat-line">Distance: <span id="finalScore">0</span>m</p>
-                <p class="stat-line">Best: <span id="bestScore">0</span>m</p>
+    <!-- Level start banner (fades in and out; gameplay keeps running) -->
+    <div id="levelBanner" class="level-banner" aria-live="polite"><div class="ui-banner banner-ribbon"><span id="levelBannerText"></span></div></div>
+
+    <!-- Title -->
+    <div id="titleScreen" class="screen title-screen hidden">
+        <div class="title-stack">
+            <img class="logo" src="public/assets/game/logo.png" alt="Wubby's Treat Run">
+            <p class="story">A sneaky squirrel stole Wubby's treat! Chase it through 3 levels and get it back.</p>
+            <button id="playBtn" class="ui-btn-primary btn btn-primary">PLAY</button>
+            <div id="titleBest" class="ui-panelS title-best hidden"><span class="ui-icon-clock"></span><span id="titleBestText"></span></div>
+            <div class="controls">
+                <span class="keys"><span class="ui-key key">◀</span><span class="ui-key key">▶</span> move</span>
+                <span class="keys"><span class="ui-key-space key key-space">SPACE</span> jump (hold for higher)</span>
+                <span class="keys"><span class="ui-key key">Esc</span> pause</span>
+                <span class="keys"><span class="ui-key key">M</span> sound</span>
             </div>
-            <button id="restartBtn" class="restart-btn">▶ PLAY AGAIN</button>
+            <p id="levelError" class="error hidden"></p>
         </div>
     </div>
 
+    <!-- Pause -->
+    <div id="pauseScreen" class="screen hidden">
+        <div class="ui-panelL-box panel">
+            <h2 class="heading">Paused</h2>
+            <button id="resumeBtn" class="ui-btn-primary btn btn-primary">RESUME</button>
+            <button id="restartLevelBtn" class="ui-btn-wide btn">Restart level</button>
+            <button id="quitBtn" class="ui-btn-wide btn">Quit to title</button>
+        </div>
+    </div>
+
+    <!-- Reward card (shown right after the end scene) -->
+    <div id="cardScreen" class="screen hidden">
+        <div class="ui-panelL-box panel wide">
+            <canvas id="cardCanvas" class="card-canvas" width="1200" height="630"></canvas>
+            <p id="cardTimes" class="card-times"></p>
+            <label for="nameInput" class="label-text">Add your name (optional)</label>
+            <div class="ui-input name-field"><input id="nameInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="a kind stranger"></div>
+            <div class="golden-summary">
+                <div id="goldenIcons" class="golden-icons" aria-label="Golden bones by level"></div>
+                <p id="goldenHint" class="muted"></p>
+            </div>
+            <div class="card-actions">
+                <button id="downloadBtn" class="action"><span class="ui-btn-download"></span><span>Download</span></button>
+                <button id="shareBtn" class="action"><span class="ui-btn-share"></span><span>Share</span></button>
+                <button id="copyLinkBtn" class="action"><span class="ui-icon-paw action-icon"></span><span>Copy link</span></button>
+                <button id="playAgainBtn" class="action"><span class="ui-btn-restart"></span><span>Play again</span></button>
+            </div>
+            <div id="shareFallback" class="share-fallback hidden">
+                <a id="shareX" class="ui-btn-wide btn" target="_blank" rel="noopener">Post on X</a>
+                <a id="shareLinkedIn" class="ui-btn-wide btn" target="_blank" rel="noopener">Share on LinkedIn</a>
+            </div>
+            <p id="cardStatus" class="muted" aria-live="polite"></p>
+        </div>
+    </div>
+
+    <!-- Touch controls (touch devices, in levels only) -->
+    <div class="touch-controls">
+        <div class="touch-group">
+            <button class="ui-key touch-btn" data-control="left" aria-label="Move left">◀</button>
+            <button class="ui-key touch-btn" data-control="right" aria-label="Move right">▶</button>
+        </div>
+        <button class="ui-key-space touch-btn jump" data-control="jump" aria-label="Jump">JUMP</button>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="analytics.js"></script>
+    <script src="engine.js"></script>
+    <script src="public/assets/game/manifest.js"></script>
+    <script src="art.js"></script>
+    <script src="levels/level1.js"></script>
+    <script src="levels/level2.js"></script>
+    <script src="levels/level3.js"></script>
+    <script src="rewardCard.js"></script>
+    <script src="share.js"></script>
     <script src="game.js"></script>
 </body>
 

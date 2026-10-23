@@ -1,0 +1,221 @@
+{
+ "image": "tiles_garden.png",
+ "tile": 18,
+ "tiles": {
+  "ground_left": {
+   "x": 0,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid0": {
+   "x": 18,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid1": {
+   "x": 36,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid2": {
+   "x": 54,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid3": {
+   "x": 72,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_right": {
+   "x": 90,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_fill": {
+   "x": 108,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_left": {
+   "x": 126,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_mid0": {
+   "x": 144,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_mid1": {
+   "x": 162,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_mid2": {
+   "x": 180,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_right": {
+   "x": 198,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_single": {
+   "x": 216,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  }
+ },
+ "props": [
+  {
+   "x": 8,
+   "y": 41,
+   "w": 48,
+   "h": 16,
+   "source": 14
+  },
+  {
+   "x": 88,
+   "y": 37,
+   "w": 15,
+   "h": 20,
+   "source": 16
+  },
+  {
+   "x": 150,
+   "y": 37,
+   "w": 19,
+   "h": 20,
+   "source": 17
+  },
+  {
+   "x": 206,
+   "y": 41,
+   "w": 36,
+   "h": 16,
+   "source": 18
+  },
+  {
+   "x": 280,
+   "y": 39,
+   "w": 16,
+   "h": 18,
+   "source": 19
+  },
+  {
+   "x": 344,
+   "y": 39,
+   "w": 15,
+   "h": 18,
+   "source": 20
+  },
+  {
+   "x": 401,
+   "y": 40,
+   "w": 30,
+   "h": 17,
+   "source": 21
+  },
+  {
+   "x": 474,
+   "y": 21,
+   "w": 12,
+   "h": 36,
+   "source": 22
+  },
+  {
+   "x": 15,
+   "y": 59,
+   "w": 33,
+   "h": 38,
+   "source": 23
+  },
+  {
+   "x": 83,
+   "y": 76,
+   "w": 25,
+   "h": 21,
+   "source": 24
+  },
+  {
+   "x": 153,
+   "y": 78,
+   "w": 14,
+   "h": 19,
+   "source": 26
+  },
+  {
+   "x": 219,
+   "y": 81,
+   "w": 10,
+   "h": 16,
+   "source": 27
+  },
+  {
+   "x": 280,
+   "y": 85,
+   "w": 16,
+   "h": 12,
+   "source": 28
+  },
+  {
+   "x": 344,
+   "y": 83,
+   "w": 15,
+   "h": 14,
+   "source": 13
+  },
+  {
+   "x": 385,
+   "y": 78,
+   "w": 62,
+   "h": 19,
+   "source": 15
+  },
+  {
+   "x": 464,
+   "y": 71,
+   "w": 32,
+   "h": 26,
+   "source": 25
+  }
+ ],
+ "roles": {
+  "ground": {
+   "left": "ground_left",
+   "right": "ground_right",
+   "mid": [
+    "ground_mid0",
+    "ground_mid1",
+    "ground_mid2",
+    "ground_mid3"
+   ],
+   "fill": "ground_fill"
+  },
+  "platform": {
+   "left": "platform_left",
+   "right": "platform_right",
+   "mid": [
+    "platform_mid0",
+    "platform_mid1",
+    "platform_mid2"
+   ],
+   "single": "platform_single"
+  }
+ }
+}

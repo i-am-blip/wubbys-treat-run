@@ -1,109 +1,69 @@
-# 🎮 Pixel Platformer Game
+# 🐶 Wubby's Treat Run
 
-A retro-style platformer game built with vanilla JavaScript and HTML5 Canvas, featuring pixel art graphics from Kenney's asset pack.
+A short pixel platformer in vanilla JavaScript and HTML5 Canvas. A squirrel stole Wubby's treat!
+Chase it through three hand-designed levels, catch the thief, and share your reward card.
 
-## 🎯 Features
+## Run it
 
-- **Smooth Player Movement**: Left/Right arrow keys for movement
-- **Jump Mechanics**: Space bar or Up arrow to jump
-- **Physics Engine**: Realistic gravity and collision detection
-- **Platform Collision**: Precise collision detection with multiple platforms
-- **Collectibles**: Coins to collect for points
-- **Lives System**: 3 lives with respawn functionality
-- **Score Tracking**: Track your progress
-- **Animated Sprites**: Character animations and coin rotations
-- **Beautiful UI**: Premium retro gaming aesthetic with gradients and effects
-
-## 🎮 Controls
-
-- **← →** - Move Left/Right
-- **SPACE** or **↑** - Jump
-- **🔄 Restart Button** - Reset the game
-
-## 🚀 How to Play
-
-### Option 1: Direct File Opening
-1. Simply double-click `index.html` to open it in your default browser
-2. Start playing immediately!
-
-### Option 2: Local Server (Recommended for best performance)
-If you have Python installed:
 ```bash
-python -m http.server 8000
+npx -y http-server -p 8000 -c-1
 ```
 
-If you have Node.js installed:
+Then open `http://localhost:8000`. Opening `index.html` directly also plays, but downloading or sharing
+the reward card needs the local server (browsers block reading back canvases drawn from `file://` images).
+
+## Controls
+
+- **← → / A D**: move
+- **SPACE / ↑ / W**: jump. Hold for a higher jump, tap for a short hop.
+- **ESC / P**: pause
+- **M**: sound on/off
+- **Touch devices**: on-screen ◀ ▶ ▲ buttons
+
+## Gameplay
+
+- 3 levels of about 45-60s each. Levels 1-2 end at a biscuit pedestal. Level 3 ends with a short
+  chase: catch the thief to get the treat back.
+- 3 hearts. A hit costs a heart and makes Wubby drop up to 5 bones. They scatter and can be picked
+  up again for 3 seconds. Spikes and gaps send you back to the last checkpoint. Losing all hearts
+  restarts the current level only.
+- Bones: 25-30 per level, laid out as trails. Every 25 = +1 heart (max 5). Collect them all for
+  "full belly ✓". Quick pickups play a rising note.
+- Squirrels (the thief's gang): stomp from above. Touching them from the side costs a heart.
+- 3 hidden golden bones per level (9 total). Find them all for a gold-bordered card with a crown.
+- The game quietly helps if you keep dying in the same spot.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `config.js` | All tunables: physics, hearts, bones, dropped bones, assist, thief |
+| `engine.js` | Pure logic: level parsing, tile collision, Wubby/squirrel/thief/bone physics, jump arcs |
+| `levels/` | Level tile maps. See [levels/README.md](levels/README.md) |
+| `game.js` | Screens, game state, intro, chase, end scene, rendering, HUD, save data |
+| `rewardCard.js` | The reward card image: `renderRewardCard(data, art)` → canvas |
+| `share.js` | Name validation, treat number, download/share/copy link |
+| `analytics.js` | `track()` stub. Wire a provider in `analytics.send()` |
+| `tools/check-levels.js` | Verifies every level with the jump arc from config and real physics |
+| `art.js` | Loads the built art and draws atlas frames/animations |
+| `public/assets/game/` | Built art: atlases + JSON, tiles, parallax layers, UI pieces + `ui.css`, `manifest.js` |
+| `scripts/build_assets.py` | Builds `public/assets/game/` from `assets/raw/` (previews in `assets/preview/`) |
+
+Progress (best time, most golden bones, completed) is saved in `localStorage`.
+
+## Art pipeline
+
+The final art lives in `assets/raw/` (green-screen sheets). To rebuild the game assets:
+
 ```bash
-npx -y http-server -p 8000
+py -3.12 -m venv .venv
+.venv/Scripts/python -m pip install pillow numpy
+.venv/Scripts/python scripts/build_assets.py
 ```
 
-Then open your browser to: `http://localhost:8000`
+Check the labeled contact sheets in `assets/preview/` after a rebuild. Frame maps, target sizes,
+tile roles and background layouts are set at the top of the script.
 
-## 🎨 Game Mechanics
+## License
 
-### Player Physics
-- **Gravity**: 0.6 units per frame
-- **Jump Force**: 12 units
-- **Movement Speed**: 4 pixels per frame
-- **Max Fall Speed**: 15 units
-
-### Collision System
-The game features a robust AABB (Axis-Aligned Bounding Box) collision detection system that:
-- Detects collisions from all four sides (top, bottom, left, right)
-- Resolves collisions based on minimum overlap
-- Allows smooth platform landing and wall sliding
-- Prevents player from falling through platforms
-
-### Level Design
-- Multiple platforms at different heights
-- Strategic coin placement to encourage exploration
-- Ground platform to prevent falling infinitely
-- Challenging jumps requiring precise timing
-
-## 🏆 Scoring
-- Each coin collected: **+100 points**
-- Try to collect all coins!
-
-## 💡 Tips
-- Time your jumps carefully to reach higher platforms
-- Collect all coins for maximum score
-- Don't fall off the bottom of the screen or you'll lose a life!
-- Use the momentum from running to make longer jumps
-
-## 🛠️ Technical Details
-
-### Built With
-- **HTML5 Canvas** - Game rendering
-- **Vanilla JavaScript** - Game logic and physics
-- **CSS3** - Premium UI styling with animations
-- **Kenney Pixel Platformer Assets** - Individual sprite tiles (18x18 for tiles, 24x24 for characters)
-
-### Code Structure
-- `index.html` - Main HTML structure
-- `style.css` - Premium styling with retro aesthetics
-- `game.js` - Complete game engine with physics and collision detection
-- `kenney_pixel-platformer/Tiles/` - Individual tile sprites
-- `kenney_pixel-platformer/Tiles/Characters/` - Character sprites
-- `kenney_pixel-platformer/Tiles/Backgrounds/` - Background elements
-
-### Key Features in Code
-- **Game Loop**: RequestAnimationFrame for smooth 60 FPS
-- **Sprite System**: Individual tile assets loaded and rendered separately
-- **State Management**: Clean game state handling
-- **Input System**: Keyboard event handling with key state tracking
-- **Animation System**: Frame-based sprite animation
-
-## 📝 Future Enhancements (Ideas)
-- Enemy AI and obstacles
-- Multiple levels
-- Power-ups and special abilities
-- Sound effects and background music
-- Mobile touch controls
-- High score persistence (localStorage)
-- Parallax scrolling backgrounds
-
-## 📄 License
-Game code is free to use. Assets are from Kenney (CC0 License) - see `kenney_pixel-platformer/License.txt`
-
-## 🎉 Enjoy!
-Have fun playing! Try to beat your high score and collect all the coins!
+Game code is free to use.

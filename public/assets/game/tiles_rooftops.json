@@ -1,0 +1,165 @@
+{
+ "image": "tiles_rooftops.png",
+ "tile": 18,
+ "tiles": {
+  "ground_left": {
+   "x": 0,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid0": {
+   "x": 18,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_mid1": {
+   "x": 36,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_right": {
+   "x": 54,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "ground_fill": {
+   "x": 72,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_left": {
+   "x": 90,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_mid0": {
+   "x": 108,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_right": {
+   "x": 126,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  },
+  "platform_single": {
+   "x": 144,
+   "y": 0,
+   "w": 18,
+   "h": 18
+  }
+ },
+ "props": [
+  {
+   "x": 18,
+   "y": 27,
+   "w": 18,
+   "h": 19,
+   "source": 11
+  },
+  {
+   "x": 74,
+   "y": 28,
+   "w": 16,
+   "h": 18,
+   "source": 12
+  },
+  {
+   "x": 126,
+   "y": 31,
+   "w": 22,
+   "h": 15,
+   "source": 13
+  },
+  {
+   "x": 186,
+   "y": 30,
+   "w": 12,
+   "h": 16,
+   "source": 14
+  },
+  {
+   "x": 243,
+   "y": 30,
+   "w": 9,
+   "h": 16,
+   "source": 15
+  },
+  {
+   "x": 295,
+   "y": 26,
+   "w": 15,
+   "h": 20,
+   "source": 18
+  },
+  {
+   "x": 350,
+   "y": 32,
+   "w": 14,
+   "h": 14,
+   "source": 19
+  },
+  {
+   "x": 398,
+   "y": 19,
+   "w": 28,
+   "h": 27,
+   "source": 20
+  },
+  {
+   "x": 5,
+   "y": 60,
+   "w": 44,
+   "h": 15,
+   "source": 6
+  },
+  {
+   "x": 67,
+   "y": 54,
+   "w": 31,
+   "h": 21,
+   "source": 21
+  },
+  {
+   "x": 111,
+   "y": 54,
+   "w": 53,
+   "h": 21,
+   "source": 16
+  },
+  {
+   "x": 166,
+   "y": 53,
+   "w": 53,
+   "h": 22,
+   "source": 4
+  }
+ ],
+ "roles": {
+  "ground": {
+   "left": "ground_left",
+   "right": "ground_right",
+   "mid": [
+    "ground_mid0",
+    "ground_mid1"
+   ],
+   "fill": "ground_fill"
+  },
+  "platform": {
+   "left": "platform_left",
+   "right": "platform_right",
+   "mid": [
+    "platform_mid0"
+   ],
+   "single": "platform_single"
+  }
+ }
+}

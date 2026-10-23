@@ -1,0 +1,32 @@
+{
+ "sky": "#6cd2de",
+ "layers": [
+  {
+   "image": "bg_garden_1.png",
+   "w": 776,
+   "h": 99
+  },
+  {
+   "image": "bg_garden_2.png",
+   "w": 881,
+   "h": 71
+  },
+  {
+   "image": "bg_garden_3.png",
+   "w": 874,
+   "h": 96
+  },
+  {
+   "image": "bg_garden_4.png",
+   "w": 589,
+   "h": 78
+  }
+ ],
+ "factors": [
+  0.05,
+  0.2,
+  0.45,
+  0.7
+ ],
+ "layout": "bottom"
+}

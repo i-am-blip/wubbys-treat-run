@@ -1,0 +1,168 @@
+{
+ "slices": {
+  "panelS": {
+   "w": 26,
+   "h": 28,
+   "left": 11,
+   "right": 14,
+   "top": 11,
+   "bottom": 6
+  },
+  "panelL": {
+   "w": 29,
+   "h": 31,
+   "left": 14,
+   "right": 14,
+   "top": 10,
+   "bottom": 7
+  },
+  "bar_track": {
+   "w": 22,
+   "h": 16,
+   "left": 10,
+   "right": 11
+  },
+  "bar_fill": {
+   "w": 13,
+   "h": 12,
+   "left": 6,
+   "right": 6
+  },
+  "btn_wide": {
+   "w": 8,
+   "h": 21,
+   "left": 3,
+   "right": 4
+  },
+  "btn_wide_pressed": {
+   "w": 8,
+   "h": 19,
+   "left": 4,
+   "right": 3
+  },
+  "btn_primary": {
+   "w": 7,
+   "h": 21,
+   "left": 3,
+   "right": 3
+  },
+  "btn_primary_pressed": {
+   "w": 8,
+   "h": 20,
+   "left": 4,
+   "right": 3
+  },
+  "input": {
+   "w": 9,
+   "h": 18,
+   "left": 4,
+   "right": 4
+  },
+  "key_space": {
+   "w": 7,
+   "h": 18,
+   "left": 3,
+   "right": 3
+  },
+  "banner": {
+   "w": 37,
+   "h": 21,
+   "left": 18,
+   "right": 18
+  }
+ },
+ "pieces": {
+  "badge": {
+   "w": 33,
+   "h": 29
+  },
+  "icon_heart": {
+   "w": 29,
+   "h": 26
+  },
+  "icon_heart_empty": {
+   "w": 30,
+   "h": 26
+  },
+  "icon_bone": {
+   "w": 30,
+   "h": 18
+  },
+  "icon_golden": {
+   "w": 32,
+   "h": 23
+  },
+  "icon_golden_empty": {
+   "w": 32,
+   "h": 22
+  },
+  "icon_full_belly": {
+   "w": 26,
+   "h": 26
+  },
+  "icon_clock": {
+   "w": 27,
+   "h": 33
+  },
+  "icon_paw": {
+   "w": 29,
+   "h": 27
+  },
+  "bar_divider": {
+   "w": 10,
+   "h": 17
+  },
+  "bar_wubby": {
+   "w": 40,
+   "h": 30
+  },
+  "bar_thief": {
+   "w": 40,
+   "h": 33
+  },
+  "bar_thief_pulse": {
+   "w": 39,
+   "h": 35
+  },
+  "btn_play": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_pause": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_sound_on": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_sound_off": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_restart": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_share": {
+   "w": 34,
+   "h": 31
+  },
+  "btn_download": {
+   "w": 33,
+   "h": 31
+  },
+  "btn_home": {
+   "w": 33,
+   "h": 31
+  },
+  "key": {
+   "w": 20,
+   "h": 20
+  },
+  "cursor": {
+   "w": 26,
+   "h": 30
+  }
+ }
+}

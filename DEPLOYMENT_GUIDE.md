@@ -20,4 +20,5 @@ Ensure these files are in the folder you upload:
 - `index.html` (The entry point)
 - `style.css`
 - `game.js`
-- `kenney_pixel-platformer/` (Assets folder)
+- `public/assets/game/` (built art, see `scripts/build_assets.py`)
+- `*.js` game scripts and `levels/`

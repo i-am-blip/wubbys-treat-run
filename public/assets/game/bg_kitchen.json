@@ -1,0 +1,32 @@
+{
+ "sky": "#7b3423",
+ "layers": [
+  {
+   "image": "bg_kitchen_1.png",
+   "w": 731,
+   "h": 129
+  },
+  {
+   "image": "bg_kitchen_2.png",
+   "w": 823,
+   "h": 99
+  },
+  {
+   "image": "bg_kitchen_3.png",
+   "w": 823,
+   "h": 105
+  },
+  {
+   "image": "bg_kitchen_4.png",
+   "w": 479,
+   "h": 86
+  }
+ ],
+ "factors": [
+  0.05,
+  0.2,
+  0.45,
+  0.7
+ ],
+ "layout": "stack"
+}
