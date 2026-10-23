@@ -1,25 +1,29 @@
 {
- "sky": "#d99d89",
+ "sky": "#db9d8b",
  "layers": [
   {
    "image": "bg_rooftops_1.png",
-   "w": 731,
-   "h": 106
+   "w": 1640,
+   "h": 212,
+   "solidTop": 0
   },
   {
    "image": "bg_rooftops_2.png",
-   "w": 823,
-   "h": 84
+   "w": 3344,
+   "h": 169,
+   "solidTop": 67
   },
   {
    "image": "bg_rooftops_3.png",
-   "w": 823,
-   "h": 89
+   "w": 3344,
+   "h": 181,
+   "solidTop": 72
   },
   {
    "image": "bg_rooftops_4.png",
-   "w": 823,
-   "h": 91
+   "w": 3344,
+   "h": 184,
+   "solidTop": 86
   }
  ],
  "factors": [
@@ -28,5 +32,5 @@
   0.45,
   0.7
  ],
- "layout": "stack"
+ "layout": "overlap"
 }

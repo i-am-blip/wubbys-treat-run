@@ -24,12 +24,15 @@ function treatNumber(name, finishTimeMs) {
     return String(h % 10000).padStart(4, '0');
 }
 
+// Production URL from config; the page's own URL only when it is a real site. '' = no URL.
 function siteUrl() {
-    return CONFIG.card.siteUrl || (location.origin + location.pathname);
+    if (CONFIG.card.siteUrl) return CONFIG.card.siteUrl;
+    const local = location.protocol === 'file:' || /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?$)/.test(location.hostname);
+    return local ? '' : location.origin + location.pathname;
 }
 
 function shareText(data) {
-    return `Wubby got his treat, thanks to ${data.name} ♥ Treat #${data.treat} · ${formatTime(data.runTime)} · ${data.goldens}/${data.totalGoldens} golden bones`;
+    return `Wubby got his treat back, thanks to ${data.name} ♥`;
 }
 
 function canvasToBlob(canvas) {
@@ -53,7 +56,8 @@ async function shareCard(canvas, data) {
         const blob = await canvasToBlob(canvas);
         const file = new File([blob], `wubby-treat-${data.treat}.png`, { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], text: shareText(data), url: siteUrl() });
+            const url = siteUrl();
+            await navigator.share({ files: [file], text: shareText(data), ...(url ? { url } : {}) });
             return 'web_share';
         }
     } catch (e) {
@@ -65,13 +69,13 @@ async function shareCard(canvas, data) {
 function shareLinks(data) {
     const text = shareText(data), url = siteUrl();
     return {
-        x: `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-        linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text + ' ' + url)}`
+        x: `https://x.com/intent/post?text=${encodeURIComponent(text)}` + (url ? `&url=${encodeURIComponent(url)}` : ''),
+        linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(url ? text + ' ' + url : text)}`
     };
 }
 
 async function copyLink() {
-    const url = siteUrl();
+    const url = siteUrl() || location.href;
     try {
         await navigator.clipboard.writeText(url);
         return true;

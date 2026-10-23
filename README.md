@@ -30,6 +30,7 @@ the reward card needs the local server (browsers block reading back canvases dra
 - Bones: 25-30 per level, laid out as trails. Every 25 = +1 heart (max 5). Collect them all for
   "full belly ✓". Quick pickups play a rising note.
 - Squirrels (the thief's gang): stomp from above. Touching them from the side costs a heart.
+- Hazards (thorns, stakes, broken tiles, aerials, forks, burners) pulse over a red glow. Red is only used for things that hurt.
 - 3 hidden golden bones per level (9 total). Find them all for a gold-bordered card with a crown.
 - The game quietly helps if you keep dying in the same spot.
 
@@ -50,6 +51,9 @@ the reward card needs the local server (browsers block reading back canvases dra
 | `scripts/build_assets.py` | Builds `public/assets/game/` from `assets/raw/` (previews in `assets/preview/`) |
 
 Progress (best time, most golden bones, completed) is saved in `localStorage`.
+
+The reward image is just the polaroid (1080×1350). Set `CONFIG.card.siteUrl` in `config.js` to the production
+URL; it is printed on the polaroid and used in share links (localhost/file URLs are never shown).
 
 ## Art pipeline
 

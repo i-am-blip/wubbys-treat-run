@@ -8,7 +8,8 @@ joins all the sections left-to-right into one map.
 (window.LEVELS = window.LEVELS || []).push({
     name: "Backyard Garden",
     theme: "garden",   // tiles, props and parallax: garden | rooftops | kitchen
-    hints: [ { col: 20, row: 4, text: "SPACE / UP / W TO JUMP" } ],  // tutorial text drawn in the world
+    hints: [ { col: 20, row: 4, text: "SPACE / UP / W TO JUMP" },
+             { col: 208, row: 9, text: "ouch, thorns!", fade: true } ],  // fade: centred, fades once passed
     sections: [
         [   // 16 rows; every row in a section must be the same width
             '................',
@@ -30,7 +31,7 @@ joins all the sections left-to-right into one map.
 | `o` | bone. Aim for 25-30 per level, placed as trails (see below) |
 | `G` | golden bone. Exactly 3 per level, off the main path |
 | `s` | squirrel. Put it on the tile just above the ground. It walks back and forth, turning at walls and ledges |
-| `^` | spike. Put it on top of the ground. Touching it costs a heart and respawns Wubby at the checkpoint |
+| `^` | hazard (thorns, broken tiles, forks... drawn from the level's theme). Put it on top of the ground. Touching it costs a heart and respawns Wubby at the checkpoint |
 | `C` | checkpoint flag. Put it just above the ground |
 | `P` | Wubby's start position (exactly one) |
 | `E` | biscuit pedestal = level exit (every level except the last) |

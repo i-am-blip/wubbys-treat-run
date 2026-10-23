@@ -1,6 +1,6 @@
 // All gameplay tunables live here. Units: pixels (logical), seconds.
 const CONFIG = {
-    scale: 2,              // screen pixels per logical pixel
+    scale: 1.7,            // target CSS px per game pixel; snapped to whole device pixels (~38% more world than 2)
     tileSize: 18,
     fixedStep: 1 / 60,     // physics timestep; identical speed on 60/120/144Hz screens
     maxFrameTime: 0.25,    // clamp long frames (tab switches) so physics never explodes
@@ -85,9 +85,11 @@ const CONFIG = {
     camera: { leadRatio: 0.35, smoothing: 10 },
 
     card: {
-        width: 1200,
-        height: 630,
-        siteUrl: ''        // leave empty to use the page's own URL
+        width: 1080,       // the shared image is just the polaroid, portrait
+        height: 1350,
+        // Production URL printed on the polaroid and used in share links. When empty, the page's own URL is
+        // used only if it is a real site (never localhost or file://); otherwise no URL is shown.
+        siteUrl: ''
     },
 
     storageKey: 'wubby-save-v1'

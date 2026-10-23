@@ -1,25 +1,29 @@
 {
- "sky": "#7b3423",
+ "sky": "#723222",
  "layers": [
   {
    "image": "bg_kitchen_1.png",
-   "w": 731,
-   "h": 129
+   "w": 1640,
+   "h": 259,
+   "solidTop": 0
   },
   {
    "image": "bg_kitchen_2.png",
-   "w": 823,
-   "h": 99
+   "w": 1640,
+   "h": 200,
+   "solidTop": 3
   },
   {
    "image": "bg_kitchen_3.png",
-   "w": 823,
-   "h": 105
+   "w": 3344,
+   "h": 210,
+   "solidTop": 2
   },
   {
    "image": "bg_kitchen_4.png",
-   "w": 479,
-   "h": 86
+   "w": 1640,
+   "h": 174,
+   "solidTop": 84
   }
  ],
  "factors": [

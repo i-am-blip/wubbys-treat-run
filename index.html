@@ -72,27 +72,30 @@
     </div>
 
     <!-- Reward card (shown right after the end scene) -->
-    <div id="cardScreen" class="screen hidden">
-        <div class="ui-panelL-box panel wide">
-            <canvas id="cardCanvas" class="card-canvas" width="1200" height="630"></canvas>
-            <p id="cardTimes" class="card-times"></p>
-            <label for="nameInput" class="label-text">Add your name (optional)</label>
-            <div class="ui-input name-field"><input id="nameInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="a kind stranger"></div>
-            <div class="golden-summary">
-                <div id="goldenIcons" class="golden-icons" aria-label="Golden bones by level"></div>
-                <p id="goldenHint" class="muted"></p>
-            </div>
+    <div id="cardScreen" class="screen card-screen hidden">
+        <div class="end-stack">
+            <!-- Hero: the polaroid itself (this canvas is the shared/downloaded image) -->
+            <div class="polaroid-drop"><canvas id="cardCanvas" class="card-canvas" width="1080" height="1350" aria-label="Your reward polaroid"></canvas></div>
+            <label class="name-row">
+                <span class="label-text">Your name on the photo</span>
+                <span class="ui-input name-field"><input id="nameInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="a kind stranger"></span>
+            </label>
             <div class="card-actions">
                 <button id="downloadBtn" class="action"><span class="ui-btn-download"></span><span>Download</span></button>
                 <button id="shareBtn" class="action"><span class="ui-btn-share"></span><span>Share</span></button>
-                <button id="copyLinkBtn" class="action"><span class="ui-icon-paw action-icon"></span><span>Copy link</span></button>
                 <button id="playAgainBtn" class="action"><span class="ui-btn-restart"></span><span>Play again</span></button>
             </div>
             <div id="shareFallback" class="share-fallback hidden">
                 <a id="shareX" class="ui-btn-wide btn" target="_blank" rel="noopener">Post on X</a>
                 <a id="shareLinkedIn" class="ui-btn-wide btn" target="_blank" rel="noopener">Share on LinkedIn</a>
             </div>
-            <p id="cardStatus" class="muted" aria-live="polite"></p>
+            <p class="secondary-row"><button id="copyLinkBtn" class="text-btn">Copy link to the game</button><span id="cardStatus" aria-live="polite"></span></p>
+            <!-- Quiet stats -->
+            <div class="stats-row">
+                <span id="cardTimes"></span>
+                <span id="goldenIcons" class="golden-icons" aria-label="Golden bones by level"></span>
+                <span id="goldenHint"></span>
+            </div>
         </div>
     </div>
 

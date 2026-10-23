@@ -169,6 +169,7 @@ function startLevel(index, retry = false, showBanner = true) {
         deaths: new Map(), // death bucket -> count (quiet assist)
         assisted: new Set(),
         assistBones: [],
+        hintFade: {},      // hint index -> seconds since Wubby passed it
         chase: null
     };
     game.particles = [];
@@ -442,8 +443,14 @@ function updatePlaying(dt) {
         lv.checkpoint = i;
         lv.checkpointTime = game.clock;
         sound.checkpoint();
-        spawnEffect('gang_effects', 'checkpointBurst', c.x + T / 2, c.y + 6);
+        // gold sparkle (the checkpoint burst art is red/pink, and red is reserved for hazards)
+        spawnEffect('gang_effects', 'streakSparkle', c.x + T / 2, c.y + 6);
         game.banner = { text: 'CHECKPOINT!', sub: '', time: 1.2 };
+    });
+
+    // 'fade' hints fade out once Wubby has passed them
+    level.hints.forEach((h, i) => {
+        if (h.fade && (lv.hintFade[i] || p.x > h.col * T + T * 2)) lv.hintFade[i] = (lv.hintFade[i] || 0) + dt;
     });
 
     if (level.exit && overlaps(p, level.exit)) completeLevel();
@@ -649,6 +656,7 @@ function applyAssist(bucket) {
         }
     }
     level.tileCanvas = null;
+    level.hazardNames = null; // spike list may have changed
 
     // 2. Faint bone trail along a real full jump over each remaining hazard run
     for (let c = c0; c <= c1; c++) {
@@ -829,12 +837,12 @@ function finishRun() {
         totalLevels: levels.length,
         goldensByLevel: run.goldens.map((s, i) => ({ found: s.size, total: levels[i].goldens.length })),
         date: new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
-        url: siteUrl().replace(/^https?:\/\//, '')
+        url: siteUrl().replace(/^https?:\/\//, '').replace(/\/$/, '')
     };
     $('nameInput').value = '';
     renderGoldenSummary(game.card);
     $('shareFallback').classList.add('hidden');
-    $('cardTimes').textContent = `Run time ${formatTime(run.runTime)} · Best ${formatTime(save.data.bestTime)}` + (isBest ? ' · NEW BEST!' : '');
+    $('cardTimes').textContent = `Run ${formatTime(run.runTime)} · Best ${formatTime(save.data.bestTime)}` + (isBest ? ' · new best!' : '');
     $('cardStatus').textContent = '';
     setScreen('card');
     updateCard();
@@ -861,7 +869,7 @@ function renderGoldenSummary(c) {
                 ? '<span class="ui-icon-golden" role="img" aria-label="found"></span>'
                 : '<span class="ui-icon-golden-empty" role="img" aria-label="missing"></span>';
         }
-        return `<div class="golden-group"><span class="golden-level">L${i + 1}</span>${icons}</div>`;
+        return `<span class="golden-group"><span class="golden-level">L${i + 1}</span>${icons}</span>`;
     }).join('');
     $('goldenIcons').innerHTML = groups;
     const missing = c.goldensByLevel.map((g, i) => ({ n: g.total - g.found, level: i + 1 })).filter(m => m.n > 0);
@@ -971,6 +979,49 @@ function renderLevelTiles(level) {
         const t = ts.tiles[name];
         c.drawImage(img, t.x, t.y, t.w, t.h, x, y, T, T);
     };
+
+    // Ground top per column: highest row from which the column is solid all the way down (pits have none)
+    const groundTop = new Array(level.width).fill(Infinity);
+    for (let cc = 0; cc < level.width; cc++) {
+        for (let r = level.height - 1; r >= 0 && solid(cc, r); r--) groundTop[cc] = r;
+    }
+
+    // 1. Pits read as pits: below the surrounding ground level, the background fades to a deep shade
+    const PIT = '20, 14, 12';
+    for (let cc = 0; cc < level.width; cc++) {
+        if (groundTop[cc] !== Infinity) continue;
+        let l = cc, r = cc;
+        while (l > 0 && groundTop[l] === Infinity) l--;
+        while (r < level.width - 1 && groundTop[r] === Infinity) r++;
+        const edge = Math.max(groundTop[l] === Infinity ? 0 : groundTop[l], groundTop[r] === Infinity ? 0 : groundTop[r]);
+        const y0 = edge * T - 2;
+        const steps = [0.3, 0.5, 0.66, 0.78, 0.87]; // pixel-stepped, 3px bands
+        steps.forEach((a, k) => { c.fillStyle = `rgba(${PIT}, ${a})`; c.fillRect(cc * T, y0 + k * 3, T, 3); });
+        c.fillStyle = `rgba(${PIT}, 0.94)`;
+        c.fillRect(cc * T, y0 + steps.length * 3, T, level.pixelHeight - y0);
+    }
+
+    // 2. Soft pixel-stepped shadows (~25%): under floating platforms, and from ground edges into pits
+    const SHADOW = [0.25, 0.16, 0.08]; // 2px steps
+    for (let r = 0; r < level.height; r++) {
+        for (let cc = 0; cc < level.width; cc++) {
+            if (!solid(cc, r)) continue;
+            if (!solid(cc, r - 1) && !solid(cc, r + 1)) {
+                SHADOW.forEach((a, k) => { c.fillStyle = `rgba(0, 0, 0, ${a})`; c.fillRect(cc * T + 1, (r + 1) * T + k * 2, T - 2, 2); });
+            }
+            for (const dir of [-1, 1]) {
+                const nc = cc + dir;
+                if (nc < 0 || nc >= level.width || groundTop[nc] !== Infinity || solid(nc, r)) continue;
+                SHADOW.forEach((a, k) => {
+                    c.fillStyle = `rgba(0, 0, 0, ${a})`;
+                    c.fillRect(dir > 0 ? (cc + 1) * T + k * 2 : cc * T - (k + 1) * 2, r * T, 2, T);
+                });
+            }
+        }
+    }
+
+    // 3. Tiles, with a 1px darker line along the top edge of every walkable surface
+    const edges = [];
     for (let r = 0; r < level.height; r++) {
         for (let cc = 0; cc < level.width; cc++) {
             if (!solid(cc, r)) continue;
@@ -983,8 +1034,14 @@ function renderLevelTiles(level) {
                     : rightOpen ? role.right
                         : role.mid[hash(cc * 31 + r) % role.mid.length];
             tile(name, cc * T, r * T);
+            edges.push([name, cc * T, r * T]);
         }
     }
+    c.fillStyle = 'rgba(30, 16, 8, 0.45)';
+    edges.forEach(([name, x, y]) => {
+        const top = ts.tiles[name].top;
+        if (top) top.forEach((ty, i) => { if (ty < T) c.fillRect(x + i, y + ty, 1, 1); });
+    });
     // Props: decoration only, bottom-centred on their tile
     level.decorations.forEach(d => {
         const p = ts.props[hash(d.x / T + level.index * 101) % ts.props.length];
@@ -993,38 +1050,169 @@ function renderLevelTiles(level) {
     return off;
 }
 
-// Title scene: covers the screen at a whole-number scale
+// Title scene: kept at its generated resolution, covering the screen at whole device pixels
 function drawTitleScene() {
     const img = artImage('title_bg.png');
     ctx.fillStyle = '#2a3a4a';
     ctx.fillRect(0, 0, view.width, view.height);
     if (!img || !img.naturalWidth) return;
-    const k = Math.max(1, Math.ceil(Math.max(view.width / img.naturalWidth, view.height / img.naturalHeight)));
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const k = Math.max(1, Math.ceil(Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight)));
     const w = img.naturalWidth * k, h = img.naturalHeight * k;
-    ctx.drawImage(img, Math.floor((view.width - w) / 2), Math.floor((view.height - h) / 2), w, h);
+    ctx.drawImage(img, Math.floor((canvas.width - w) / 2), Math.floor((canvas.height - h) / 2), w, h);
+    ctx.restore();
 }
 
-// Parallax: 4 layers per theme, anchored to the bottom of the view ('stack' themes stack their bands upward).
-// Layers are drawn at a whole-number magnification m; the sky colour fills above them.
+// Atmospheric depth: far layers lean toward the sky colour (lower contrast); near layers are slightly desaturated.
+// Layer 1 is the sky itself (untinted). Every layer's top fades out so layers overlap without hard lines.
+const BG_DEPTH = [
+    { tint: 0, saturate: 1 },
+    { tint: 0.55, saturate: 0.9 },
+    { tint: 0.35, saturate: 0.95 },
+    { tint: 0.2, saturate: 0.85 }
+];
+const BG_TOP_FADE = 16;
+const BG_BOTTOM_FADE = 24;
+const bgLayers = {}; // theme -> pre-rendered layer canvases
+
+function prepareBackgrounds() {
+    for (const [key, bg] of Object.entries(art.meta)) {
+        if (!key.startsWith('bg_')) continue;
+        bgLayers[key] = bg.layers.map((l, i) => {
+            const img = artImage(l.image);
+            const c = document.createElement('canvas');
+            c.width = l.w;
+            c.height = l.h;
+            const g = c.getContext('2d');
+            const depth = BG_DEPTH[i] || BG_DEPTH[BG_DEPTH.length - 1];
+            if (depth.saturate !== 1) g.filter = `saturate(${depth.saturate})`;
+            if (img && img.naturalWidth) g.drawImage(img, 0, 0);
+            g.filter = 'none';
+            if (depth.tint) {
+                g.globalCompositeOperation = 'source-atop';
+                g.globalAlpha = depth.tint;
+                g.fillStyle = bg.sky;
+                g.fillRect(0, 0, l.w, l.h);
+                g.globalAlpha = 1;
+            }
+            {
+                // fade the top to transparent (the sky layer fades into the sky fill colour behind it)
+                g.globalCompositeOperation = 'destination-out';
+                const fade = g.createLinearGradient(0, 0, 0, BG_TOP_FADE);
+                fade.addColorStop(0, 'rgba(0,0,0,1)');
+                fade.addColorStop(1, 'rgba(0,0,0,0)');
+                g.fillStyle = fade;
+                g.fillRect(0, 0, l.w, BG_TOP_FADE);
+                // middle layers also fade at the bottom, so nothing hard shows through gaps in the layer in front
+                if (i > 0 && i < bg.layers.length - 1) {
+                    const bottom = g.createLinearGradient(0, l.h - BG_BOTTOM_FADE, 0, l.h);
+                    bottom.addColorStop(0, 'rgba(0,0,0,0)');
+                    bottom.addColorStop(1, 'rgba(0,0,0,1)');
+                    g.fillStyle = bottom;
+                    g.fillRect(0, l.h - BG_BOTTOM_FADE, l.w, BG_BOTTOM_FADE);
+                }
+            }
+            g.globalCompositeOperation = 'source-over';
+            return c;
+        });
+    }
+}
+
+// Vertical placement (top y of each layer) so the scene fills the view height without gaps.
+// The near layer sits on the view bottom; each farther layer's bottom tucks under the solid part of the layer
+// in front of it, so the sky colour never shows between layers. For 'overlap' themes, when the scene is taller
+// than the view, farther layers slide down (more overlap) so most of the sky stays visible.
+function backgroundLayout(bg, H) {
+    const L = bg.layers;
+    const n = L.length;
+    const tops = new Array(n);
+    tops[n - 1] = H - L[n - 1].h;
+    for (let i = n - 2; i >= 0; i--) {
+        const fadedBottom = i > 0 ? BG_BOTTOM_FADE / 2 : 0; // middle layers' soft bottom stays mostly covered
+        const bottom = tops[i + 1] + Math.max(L[i + 1].solidTop, BG_TOP_FADE) + fadedBottom + 4;
+        tops[i] = bottom - L[i].h;
+    }
+    if (bg.layout !== 'stack') {
+        const excess = -tops[0] - L[0].h * 0.35;
+        if (excess > 0) for (let i = 0; i < n - 1; i++) tops[i] += excess * (n - 1 - i) / (n - 1);
+    }
+    return tops.map(Math.round);
+}
+
+// '#rrggbb' scaled toward black by k (0..1)
+function shade(hex, k) {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = (v) => Math.round(v * k);
+    return `rgb(${ch(n >> 16)}, ${ch((n >> 8) & 255)}, ${ch(n & 255)})`;
+}
+
+// Pits (columns with no ground down to the bottom) as [x0, x1, groundLineY] in world px; cached per level attempt.
+// The ground line is the top of the lower of the two banks.
+function levelPits(level) {
+    if (level.pits) return level.pits;
+    const top = (c) => { let t = level.height; for (let r = level.height - 1; r >= 0 && isSolid(level, c, r); r--) t = r; return t; };
+    level.pits = [];
+    let start = -1;
+    for (let c = 0; c <= level.width; c++) {
+        const pit = c < level.width && !isSolid(level, c, level.height - 1);
+        if (pit && start < 0) start = c;
+        if (!pit && start >= 0) {
+            const banks = [start - 1, c].filter(b => b >= 0 && b < level.width).map(top);
+            level.pits.push([start * T, c * T, Math.max(...banks) * T]);
+            start = -1;
+        }
+    }
+    return level.pits;
+}
+
+// Parallax at 0.05 / 0.2 / 0.45 / 0.7; layers are drawn 1:1 with game pixels (same density as the tiles)
 function drawBackground() {
     if (!game.lv) { drawTitleScene(); return; }
     const W = view.width, H = view.height;
-    const bg = art.meta[`bg_${game.lv.level.theme}`];
-    ctx.fillStyle = bg.sky;
+    const key = `bg_${game.lv.level.theme}`;
+    const bg = art.meta[key];
+    const layers = bgLayers[key] || [];
+    const tops = backgroundLayout(bg, H);
+    // Above the sky layer (very tall views only): a soft zenith gradient into the sky colour, never a flat band
+    const sky = ctx.createLinearGradient(0, 0, 0, Math.max(1, tops[0] + BG_TOP_FADE));
+    sky.addColorStop(0, shade(bg.sky, 0.86));
+    sky.addColorStop(1, bg.sky);
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
-    const stack = bg.layout === 'stack';
-    const heights = bg.layers.map(l => l.h);
-    const total = stack ? heights.reduce((a, b) => a + b, 0) : heights[0];
-    const m = Math.max(1, Math.floor((H * 0.6) / total));
-    const camX = game.camera.x;
-    bg.layers.forEach((l, i) => {
-        const img = artImage(l.image);
-        if (!img || !img.naturalWidth) return;
-        const w = l.w * m, h = l.h * m;
-        const y = stack ? H - heights.slice(i).reduce((a, b) => a + b, 0) * m : H - h;
+    const camX = Math.round(game.camera.x);
+    layers.forEach((img, i) => {
+        const w = img.width;
         const offset = Math.round(((camX * bg.factors[i]) % w + w) % w);
-        for (let x = -offset; x < W; x += w) ctx.drawImage(img, x, y, w, h);
+        if (i === layers.length - 1) { drawNearLayer(img, offset, tops[i], camX); return; }
+        for (let x = -offset; x < W; x += w) ctx.drawImage(img, x, tops[i]);
     });
+}
+
+// Near layer: nothing from it (fences, gates...) may show inside a pit. Over each pit it fades out from
+// about two tiles above the ground line, so there are no hard cut-outs.
+const nearCanvas = document.createElement('canvas');
+function drawNearLayer(img, offset, top, camX) {
+    const W = view.width, H = view.height;
+    if (nearCanvas.width !== W || nearCanvas.height !== H) { nearCanvas.width = W; nearCanvas.height = H; }
+    const g = nearCanvas.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    for (let x = -offset; x < W; x += img.width) g.drawImage(img, x, top);
+    const camY = Math.round(game.camera.y);
+    g.globalCompositeOperation = 'destination-out';
+    levelPits(game.lv.level).forEach(([x0, x1, edgeY]) => {
+        if (x1 <= camX || x0 >= camX + W) return;
+        const y = edgeY - camY;
+        const fade = g.createLinearGradient(0, y - T * 2, 0, y);
+        fade.addColorStop(0, 'rgba(0,0,0,0)');
+        fade.addColorStop(1, 'rgba(0,0,0,1)');
+        g.fillStyle = fade;
+        g.fillRect(x0 - camX, y - T * 2, x1 - x0, T * 2);
+        g.fillStyle = '#000';
+        g.fillRect(x0 - camX, y, x1 - x0, H - y);
+    });
+    g.globalCompositeOperation = 'source-over';
+    ctx.drawImage(nearCanvas, 0, 0);
 }
 
 function drawWubby(p) {
@@ -1049,6 +1237,40 @@ function drawThief(th, mode) {
     drawAnim(ctx, 'thief', name, t, th.x + th.width / 2, th.y + th.height, flip, alpha);
 }
 
+// Hazards: the theme's two variants alternate per group of adjacent hazard tiles. Each pulses (2 frames, ~1.5s)
+// over a soft red glow; red is reserved for things that hurt.
+function hazardVariants(level) {
+    if (level.hazardNames) return level.hazardNames;
+    const names = art.meta.hazards.themes[level.theme];
+    const sorted = level.spikes.map((s, i) => ({ s, i })).sort((a, b) => a.s.x - b.s.x || a.s.y - b.s.y);
+    level.hazardNames = new Array(level.spikes.length);
+    let group = -1, last = null;
+    sorted.forEach(({ s, i }) => {
+        if (!last || s.y !== last.y || s.x - last.x > T) group++;
+        level.hazardNames[i] = names[group % names.length];
+        last = s;
+    });
+    return level.hazardNames;
+}
+
+function drawHazards(level, visible, time) {
+    const names = hazardVariants(level);
+    const period = 1.5;
+    level.spikes.forEach((s, i) => {
+        if (!visible(s.x)) return;
+        const phase = (time + (s.x % 97) * 0.003) % period;
+        const pulse = 0.5 - 0.5 * Math.cos((phase / period) * Math.PI * 2);
+        const cx = s.x + T / 2, cy = s.y + T - 5;
+        const glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 22);
+        glow.addColorStop(0, `rgba(255, 40, 40, ${0.45 + pulse * 0.25})`);
+        glow.addColorStop(0.6, `rgba(255, 40, 40, ${0.16 + pulse * 0.1})`);
+        glow.addColorStop(1, 'rgba(255, 40, 40, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(cx - 23, cy - 23, 46, 30);
+        drawAnim(ctx, 'hazards', names[i], phase, cx, s.y + T);
+    });
+}
+
 function drawWorld() {
     const { lv } = game;
     const level = lv.level;
@@ -1061,16 +1283,22 @@ function drawWorld() {
     ctx.translate(-camX, -camY);
     ctx.drawImage(level.tileCanvas, 0, 0);
 
-    // Hints
+    // Hints ('fade' hints sit centred over their tile and fade out once Wubby has passed them)
     ctx.font = `10px ${PIXEL_FONT}`;
-    ctx.textAlign = 'left';
-    level.hints.forEach(h => {
-        if (!visible(h.col * T, 250)) return;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillText(h.text, h.col * T + 1, h.row * T + 1);
-        ctx.fillStyle = '#ffffff'; ctx.fillText(h.text, h.col * T, h.row * T);
+    level.hints.forEach((h, i) => {
+        if (!visible(h.col * T - 125, 250)) return;
+        const alpha = h.fade ? 1 - Math.min(1, (lv.hintFade[i] || 0) / 0.6) : 1;
+        if (alpha <= 0) return;
+        const x = h.fade ? h.col * T + T / 2 : h.col * T;
+        ctx.textAlign = h.fade ? 'center' : 'left';
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillText(h.text, x + 1, h.row * T + 1);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(h.text, x, h.row * T);
+        ctx.globalAlpha = 1;
     });
+    ctx.textAlign = 'left';
 
-    level.spikes.forEach(s => { if (visible(s.x)) drawAnim(ctx, 'items', 'spikes', 0, s.x + T / 2, s.y + T); });
+    drawHazards(level, visible, time);
 
     level.checkpoints.forEach((c, i) => {
         if (!visible(c.x)) return;
@@ -1146,7 +1374,7 @@ function drawBanner() {
     if (!b) return;
     const W = view.width;
     ctx.textAlign = 'center';
-    ctx.font = `700 18px ${PIXEL_FONT}`;
+    ctx.font = `600 18px ${PIXEL_FONT}`;
     const y = Math.round(Math.max(80, view.height * 0.32));
     ctx.fillStyle = 'rgba(40, 22, 12, 0.5)';
     ctx.fillRect(0, y - 22, W, b.sub ? 48 : 32);
@@ -1269,6 +1497,7 @@ function gameLoop(now) {
 }
 
 function onAssetsLoaded() {
+    prepareBackgrounds();
     setScreen('title');
     document.body.classList.add('ready');
     requestAnimationFrame(gameLoop);

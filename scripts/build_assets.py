@@ -26,8 +26,9 @@ RAW = ROOT / 'assets' / 'raw'
 OUT = ROOT / 'public' / 'assets' / 'game'
 PREVIEW = ROOT / 'assets' / 'preview'
 TILE = 18  # CONFIG.tileSize in config.js
-BG_STEP = 2.0       # raw px per background pixel (backgrounds are drawn magnified, see game.js)
-TITLE_WIDTH = 500   # title scene width after sampling
+BG_STEP = 1.0       # backgrounds keep their generated resolution: 1 raw px = 1 game px, the same
+                    # on-screen size as a tile pixel (never coarser than the playable layer)
+HAZARD_WIDTH = 24   # hazards are sampled a bit wider than a tile so they read at a glance
 
 GREEN = np.array([0, 255, 0])
 KEY_TOL = 110       # colour distance to the key green that counts as background
@@ -666,17 +667,17 @@ TILESETS = {
     'garden': {
         'ground': {'left': 0, 'mid': [1, 2, 3, 4], 'right': 5, 'fill': 'body:6'},
         'platform': {'left': 7, 'mid': [8, 9, 10], 'right': 11, 'single': 12},
-        'props': [14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 13, 15, 25],
+        'props': [14, 17, 19, 20, 21, 22, 23, 24, 26, 28, 13, 15, 25],  # no mailbox/gnome/red planter: red is for hazards
     },
     'rooftops': {
         'ground': {'left': 0, 'mid': [1, 3], 'right': 2, 'fill': 'body:1'},
         'platform': {'left': 8, 'mid': [9], 'right': 10, 'single': 9},
-        'props': [11, 12, 13, 14, 15, 18, 19, 20, 6, 21, 16, 4],
+        'props': [12, 14, 15, 19, 20, 6, 21, 16, 4],  # no antenna/flower box/weathervane: they read like hazards
     },
     'kitchen': {
         'ground': {'left': 0, 'mid': [3, 1], 'right': 2, 'fill': 4},
         'platform': {'left': 0, 'mid': [3], 'right': 2, 'single': 3},
-        'props': [6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 20],
+        'props': [6, 7, 8, 9, 10, 11, 12, 14, 16, 17],  # no red dog bowl: red is for hazards
     },
 }
 
@@ -742,7 +743,10 @@ def make_tileset(theme, sprites):
     meta = {'image': f'tiles_{theme}.png', 'tile': TILE, 'tiles': {}, 'props': [], 'roles': {}}
     for i, n in enumerate(names):
         atlas.paste(Image.fromarray(tiles[n].astype(np.uint8), 'RGBA'), (i * TILE, 0))
-        meta['tiles'][n] = {'x': i * TILE, 'y': 0, 'w': TILE, 'h': TILE}
+        alpha = tiles[n][..., 3] > 0
+        top = [int(np.argmax(alpha[:, c])) if alpha[:, c].any() else TILE for c in range(TILE)]
+        # 'top': first opaque row per column, for the darker 1px top edge drawn on walkable surfaces
+        meta['tiles'][n] = {'x': i * TILE, 'y': 0, 'w': TILE, 'h': TILE, 'top': top}
     for i, p in enumerate(props):
         cx, cy = (i % per_row) * pw, TILE + (i // per_row) * ph
         x, y = cx + (pw - p.width) // 2, cy + ph - 1 - p.height
@@ -846,21 +850,86 @@ def repeat_width(a, min_frac=0.55, probe=4):
     return best, best_err
 
 
-def crossfade(a, n=12):
-    """No clean repeat point: blend the last n columns into the first n."""
+def crossfade(a, n=32, binary=True):
+    """No clean repeat point: blend a band of n edge columns (last n into the first n) so the wrap is seamless."""
     w = a.shape[1]
     out = a[:, :w - n].copy().astype(np.float64)
     tail = a[:, w - n:].astype(np.float64)
     t = np.linspace(0, 1, n)[None, :, None]
     out[:, :n] = tail * (1 - t) + out[:, :n] * t
-    out[..., 3] = np.where(out[..., 3] >= 128, 255, 0)
+    if binary:
+        out[..., 3] = np.where(out[..., 3] >= 128, 255, 0)
     return out.astype(np.int16)
 
 
-# Per theme: how layers are placed in game. 'bottom' = all anchored to the view bottom, overlapping
-# (keyed silhouettes); 'stack' = stacked upward from the bottom, for strips painted as opaque bands
-# (their own sky/wall is painted in, so overlapping would hide the layers behind).
-BG_LAYOUT = {'garden': 'bottom', 'rooftops': 'stack', 'kitchen': 'stack'}
+# Per theme: 'overlap' = layers overlap (keyed tops; game.js staggers them so they fill the view height);
+# 'stack' = the kitchen's interior bands, a deliberate window/wall split.
+BG_LAYOUT = {'garden': 'overlap', 'rooftops': 'overlap', 'kitchen': 'stack'}
+# Strips painted with a sky band behind their scenery: key that band by colour similarity to the top rows
+# layer: colour tolerance; 'soft' = alpha fades with colour distance (hazy far layers that sit on the sky)
+BG_SKY_KEY = {'rooftops': {2: 'soft', 3: 30, 4: 30}}
+
+
+def soft_sky_key(a, near=8, far=34):
+    """Hazy far layer painted over sky: alpha follows the colour distance to each row's sky reference
+    (taken from the top rows and blended down), so the sky dissolves and the haze fades into the real sky."""
+    h, w = a.shape[:2]
+    rgb = a[..., :3].astype(np.float64)
+    opaque = a[..., 3] > 0
+    top = int(np.argmax(opaque.mean(axis=1) > 0.9))
+    sky_top = np.median(rgb[top:top + 3][opaque[top:top + 3]], axis=0)
+    out = a.copy().astype(np.float64)
+    for y in range(h):
+        d = np.sqrt(((rgb[y] - sky_top) ** 2).sum(axis=1))
+        out[y, :, 3] = np.where(opaque[y], np.clip((d - near) / (far - near), 0, 1) * 255, 0)
+    return out.astype(np.int16)
+
+
+def key_top_band(a, tol=30, drift=14, min_island=60):
+    """Transparent sky band behind a layer's scenery. Per row, the sky reference is the median of the pixels
+    close to the previous row's reference (so it follows the painted gradient but cannot jump to the scenery);
+    pixels near it that are connected to the top become transparent. Small islands are removed afterwards."""
+    h, w = a.shape[:2]
+    rgb = a[..., :3].astype(np.float64)
+    opaque = a[..., 3] > 0
+    top = int(np.argmax(opaque.mean(axis=1) > 0.9))  # first fully painted row
+    ref = np.median(rgb[top:top + 3][opaque[top:top + 3]], axis=0)
+    cand = np.zeros((h, w), bool)
+    for y in range(top, h):
+        d = np.sqrt(((rgb[y] - ref) ** 2).sum(axis=1))
+        near = opaque[y] & (d < tol)
+        if near.sum() > w * 0.05:
+            new_ref = np.median(rgb[y][near], axis=0)
+            step = new_ref - ref
+            n = np.linalg.norm(step)
+            ref = ref + (step if n <= drift else step / n * drift)
+        cand[y] = opaque[y] & (np.sqrt(((rgb[y] - ref) ** 2).sum(axis=1)) < tol)
+    # flood from the top through sky candidates
+    sky = np.zeros((h, w), bool)
+    q = deque((top, x) for x in range(w) if cand[top, x])
+    for y, x in q:
+        sky[y, x] = True
+    while q:
+        y, x = q.popleft()
+        for yy, xx in ((y + 1, x), (y, x + 1), (y, x - 1), (y - 1, x)):
+            if 0 <= yy < h and 0 <= xx < w and cand[yy, xx] and not sky[yy, xx]:
+                sky[yy, xx] = True
+                q.append((yy, xx))
+    out = a.copy()
+    out[sky, 3] = 0
+    # drop small opaque specks left inside the removed sky
+    keep = out[..., 3] > 0
+    comps, label = components(keep)
+    for c in comps:
+        if c['area'] < min_island:
+            out[label == c['id'], 3] = 0
+    return out
+
+
+def solid_top(img, frac=0.9):
+    rows = (np.asarray(img)[..., 3] > 0).mean(axis=1)
+    ok = np.nonzero(rows >= frac)[0]
+    return int(ok[0]) if len(ok) else img.height
 
 
 def build_backgrounds():
@@ -869,59 +938,94 @@ def build_backgrounds():
         rgb = load(f'{theme}_bg.png')
         strips = green_row_strips(rgb)
         assert len(strips) == 4, f'{theme}_bg: expected 4 strips, found {len(strips)}'
-        keyed_fg = np.zeros(rgb.shape[:2], bool)
-        for y0, y1 in strips[1:]:
-            keyed_fg[y0:y1] = key_mask(rgb[y0:y1])
-        s = BG_STEP  # soft painted layers have no reliable pixel grid; sample at a fixed step
         layers = []
         for i, (y0, y1) in enumerate(strips):
             part = rgb[y0:y1]
+            if i == 0:
+                # opaque sky: drop edge rows that still carry key-green from the gap
+                g, rb = part[..., 1], np.maximum(part[..., 0], part[..., 2])
+                greenish = ((g - rb > 40) & (g > 150)).mean(axis=1) > 0.01
+                t0, t1 = 0, len(part)
+                while t0 < 8 and greenish[t0]:
+                    t0 += 1
+                while t1 > len(part) - 8 and greenish[t1 - 1]:
+                    t1 -= 1
+                part = part[t0:t1]
             fg = np.ones(part.shape[:2], bool) if i == 0 else key_mask(part)
             cols = np.nonzero(fg.any(axis=0))[0]
             part, fg = part[:, cols.min():cols.max() + 1], fg[:, cols.min():cols.max() + 1]
-            ox, oy = grid_phase(part, fg, s, 1), grid_phase(part, fg, s, 0)
-            small, alpha = sample(part, fg, s, ox, oy)
+            if i:
+                # rows next to the green gap carry key-green fringe: drop green-dominant pixels there
+                edge = np.zeros(fg.shape, bool)
+                edge[:4] = True
+                edge[-4:] = True
+                g, rb = part[..., 1], np.maximum(part[..., 0], part[..., 2])
+                fg &= ~(edge & (g - rb > 40))
+            small, alpha = sample(part, fg, BG_STEP, 0, 0)
             img = np.asarray(to_rgba(small, alpha)).astype(np.int16)
+            mode = BG_SKY_KEY.get(theme, {}).get(i + 1)
+            if mode == 'soft':
+                img = soft_sky_key(img)
+            elif mode:
+                img = key_top_band(img, tol=mode)
             if i:
                 img = np.asarray(trim(Image.fromarray(img.astype(np.uint8), 'RGBA'))).astype(np.int16)
             p, err = repeat_width(img)
-            if i == 0 and err > 6:
-                img, how = crossfade(img, n=max(12, img.shape[1] // 8)), f'crossfade (sky, best err {err:.0f})'
-            elif err < (9 if i == 1 else 18):  # far haze layers show seams sooner
-                img, how = img[:, :p], f'repeat@{p} (err {err:.0f})'
+            if err < (5 if i < 2 else 9):
+                img, how = img[:, :p], f'repeat@{p} (err {err:.1f})'
+            elif err > 20:
+                # very different ends: mirror-tile (image + its mirror), seamless at both joins
+                img, how = np.concatenate([img, img[:, ::-1]], axis=1), f'mirror-tiled (best repeat err {err:.0f})'
             else:
-                img, how = crossfade(img), f'crossfade (best err {err:.0f})'
+                img, how = crossfade(img, 32, binary=mode != 'soft'), f'32px crossfade (best repeat err {err:.0f})'
             im = Image.fromarray(img.astype(np.uint8), 'RGBA')
             im.save(OUT / f'bg_{theme}_{i + 1}.png')
             layers.append(im)
-            notes.append(f'{theme} layer {i + 1}: {im.width}x{im.height} {how}')
+            opaque = (np.asarray(im)[..., 3] > 0).mean()
+            notes.append(f'{theme} layer {i + 1}: {im.width}x{im.height} {how}, {opaque:.0%} opaque')
         top = np.asarray(layers[0]).astype(np.int16)[:2, :, :3].reshape(-1, 3).mean(axis=0)
-        (OUT / f'bg_{theme}.json').write_text(json.dumps({'sky': '#%02x%02x%02x' % tuple(int(v) for v in top), 'layers': [{'image': f'bg_{theme}_{i + 1}.png', 'w': l.width, 'h': l.height} for i, l in enumerate(layers)], 'factors': [0.05, 0.2, 0.45, 0.7], 'layout': BG_LAYOUT[theme]}, indent=1))
-        # preview: layers tiled 2.5x (seam check) + composite anchored to the bottom
-        pw = int(max(l.width for l in layers) * 2.5)
-        ph = sum(l.height + 6 for l in layers) + layers[0].height + 10
-        pv = Image.new('RGBA', (pw, ph), (30, 32, 44, 255))
+        (OUT / f'bg_{theme}.json').write_text(json.dumps({
+            'sky': '#%02x%02x%02x' % tuple(int(v) for v in top),
+            # solidTop: first row that is (almost) fully opaque; game.js tucks farther layers under it so nothing shows through
+            'layers': [{'image': f'bg_{theme}_{i + 1}.png', 'w': l.width, 'h': l.height, 'solidTop': solid_top(l)} for i, l in enumerate(layers)],
+            'factors': [0.05, 0.2, 0.45, 0.7], 'layout': BG_LAYOUT[theme]}, indent=1))
+        # preview (half size): each layer tiled across two repeats on a checker, to check keying and seams
+        pw = max(l.width for l in layers) * 2
+        pv = Image.new('RGBA', (pw, sum(l.height + 8 for l in layers)), (30, 32, 44, 255))
         y = 0
         for l in layers:
+            pv.paste(checker(pw, l.height), (0, y))
             for x in range(0, pw, l.width):
                 pv.alpha_composite(l, (x, y))
-            y += l.height + 6
-        stack = BG_LAYOUT[theme] == 'stack'
-        comp_h = sum(l.height for l in layers) if stack else layers[0].height
-        pv = pv.crop((0, 0, pw, y + comp_h))
-        base = y + comp_h
-        for k, l in enumerate(layers):
-            top = base - (sum(m.height for m in layers[k:]) if stack else l.height)
-            for x in range(0, pw, l.width):
-                pv.alpha_composite(l, (x, top))
-        pv.resize((pv.width * 2, pv.height * 2), Image.NEAREST).save(PREVIEW / f'bg_{theme}.png')
+            y += l.height + 8
+        pv.resize((pv.width // 2, pv.height // 2), Image.NEAREST).save(PREVIEW / f'bg_{theme}.png')
     return notes
+
+
+# Hazards sheet: 6 columns (garden bramble, garden stakes, roof broken tiles, roof aerial, kitchen forks,
+# kitchen burner), row 1 static, row 2 pulse
+HAZARD_NAMES = ['bramble', 'stakes', 'brokenTiles', 'aerial', 'forks', 'burner']
+HAZARD_THEMES = {'garden': ['bramble', 'stakes'], 'rooftops': ['brokenTiles', 'aerial'], 'kitchen': ['forks', 'burner']}
+
+
+def build_hazards():
+    rgb = load('hazards.png')
+    fg = key_mask(rgb)
+    comps, label = raw_components(fg)
+    cells = grid_cells(comps, 2, 6)
+    width = lambda k: max(m['x1'] for m in cells[k]) - min(m['x0'] for m in cells[k])
+    s = float(np.median([width((0, c)) for c in range(6)]) / HAZARD_WIDTH)
+    frames = {k: extract(rgb, fg, label, v, s) for k, v in cells.items()}
+    anims = {n: {'frames': [f'R1C{c + 1}', f'R2C{c + 1}'], 'fps': 2 / 1.5, 'loop': True} for c, n in enumerate(HAZARD_NAMES)}
+    write_atlas('hazards', frames, 2, 6, lambda r, c: 'bottom', anims, {'themes': HAZARD_THEMES})
+    anim_preview('hazards', frames, anims, zoom=5)
+    return [f'hazards step {s:.2f} ({HAZARD_WIDTH}px wide)']
 
 
 def build_title_logo():
     rgb = load('title_scene.png')
     fg = np.ones(rgb.shape[:2], bool)
-    s = rgb.shape[1] / TITLE_WIDTH
+    s = 1.0  # generated resolution; game.js draws it at whole device pixels
     small, alpha = sample(rgb, fg, s, grid_phase(rgb, fg, s, 1), grid_phase(rgb, fg, s, 0))
     title = to_rgba(small, alpha)
     title.save(OUT / 'title_bg.png')
@@ -933,9 +1037,9 @@ def build_title_logo():
     logo.save(OUT / 'logo.png')
     # left: title scene alone; right: logo alone on a dark background
     lg = logo.resize((logo.width * 2, logo.height * 2), Image.NEAREST)
-    pv = Image.new('RGBA', (title.width * 2 + lg.width + 30, max(title.height * 2, lg.height)), (30, 32, 44, 255))
-    pv.alpha_composite(title.resize((title.width * 2, title.height * 2), Image.NEAREST))
-    pv.alpha_composite(lg, (title.width * 2 + 20, 10))
+    pv = Image.new('RGBA', (title.width // 2 + lg.width + 30, max(title.height // 2, lg.height)), (30, 32, 44, 255))
+    pv.alpha_composite(title.resize((title.width // 2, title.height // 2), Image.NEAREST))
+    pv.alpha_composite(lg, (title.width // 2 + 20, 10))
     pv.save(PREVIEW / 'title.png')
     return [f'title {title.width}x{title.height} (step {s:.2f}), logo {logo.width}x{logo.height} (step {ls:.2f})']
 
@@ -970,6 +1074,7 @@ def build_all():
     notes.append(build_ui()[1])
     notes += build_tiles()
     notes += build_backgrounds()
+    notes += build_hazards()
     notes += build_title_logo()
     notes += build_cards()
     notes += write_manifest()

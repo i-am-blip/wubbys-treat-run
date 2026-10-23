@@ -1,25 +1,29 @@
 {
- "sky": "#6cd2de",
+ "sky": "#71d2e0",
  "layers": [
   {
    "image": "bg_garden_1.png",
-   "w": 776,
-   "h": 99
+   "w": 1742,
+   "h": 197,
+   "solidTop": 0
   },
   {
    "image": "bg_garden_2.png",
-   "w": 881,
-   "h": 71
+   "w": 1334,
+   "h": 144,
+   "solidTop": 75
   },
   {
    "image": "bg_garden_3.png",
-   "w": 874,
-   "h": 96
+   "w": 3548,
+   "h": 194,
+   "solidTop": 60
   },
   {
    "image": "bg_garden_4.png",
-   "w": 589,
-   "h": 78
+   "w": 1742,
+   "h": 158,
+   "solidTop": 78
   }
  ],
  "factors": [
@@ -28,5 +32,5 @@
   0.45,
   0.7
  ],
- "layout": "bottom"
+ "layout": "overlap"
 }

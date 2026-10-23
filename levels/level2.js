@@ -4,7 +4,7 @@
     theme: "rooftops",
     hints: [
         { col: 14, row: 4, text: "JUMP ON SQUIRRELS FROM ABOVE" },
-        { col: 28, row: 4, text: "SPIKES HURT - JUMP OVER THEM" }
+        { col: 28, row: 4, text: "SHARP THINGS HURT - JUMP OVER THEM" }
     ],
     sections: [
         // Start (columns 0-13)
