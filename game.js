@@ -12,7 +12,7 @@ const PIXEL_FONT = "'Pixelify Sans', sans-serif";
 
 // ---------- Save (localStorage can throw in private mode, so everything is guarded) ----------
 const save = (() => {
-    const defaults = { bestTime: null, maxGoldens: 0, completed: false, muted: false };
+    const defaults = { completed: false, muted: false };
     let data = { ...defaults };
     try { data = { ...defaults, ...JSON.parse(localStorage.getItem(CONFIG.storageKey) || '{}') }; } catch (e) { /* fresh save */ }
     return {
@@ -839,12 +839,9 @@ function updateEnding(dt) {
 function finishRun() {
     const run = game.run;
     const goldens = goldenTotal();
-    const isBest = save.data.bestTime == null || run.runTime < save.data.bestTime;
-    if (isBest) save.data.bestTime = run.runTime;
-    save.data.maxGoldens = Math.max(save.data.maxGoldens, goldens);
     save.data.completed = true;
     save.write();
-    track('game_complete', { time: Math.round(run.runTime), goldens, fullBelly: run.fullBelly.filter(Boolean).length, best: isBest });
+    track('game_complete', { time: Math.round(run.runTime), goldens, fullBelly: run.fullBelly.filter(Boolean).length });
 
     game.card = {
         runTime: run.runTime,
@@ -1528,9 +1525,6 @@ buildJourney();
 
 function renderTitleStats() {
     const s = save.data;
-    // Returning players only: a quiet line under Play
-    $('titleBest').classList.toggle('hidden', s.bestTime == null);
-    $('titleBest').textContent = s.bestTime == null ? '' : `Best ${formatTime(s.bestTime)} · ${s.maxGoldens}/${TOTAL_GOLDENS} golden bones`;
     refreshTitleLove();
     if (levelError) {
         $('levelError').textContent = 'Level error: ' + levelError;

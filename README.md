@@ -61,11 +61,11 @@ Level 1 shows a short controls hint that fades once you've moved and jumped; Esc
 | `public/assets/game/` | Built art: atlases + JSON, tiles, parallax layers, UI pieces + `ui.css`, `manifest.js` |
 | `scripts/build_assets.py` | Builds `public/assets/game/` from `assets/raw/` (previews in `assets/preview/`) |
 
-Progress (best time, most golden bones, completed) is saved in `localStorage`.
+Whether you've finished the game and the sound setting are saved in `localStorage`. There's no best time: it isn't a competitive game.
 
 The end screen: the polaroid, a name field, **Copy image** (falls back to a download where browsers can't copy
-images) and **Play again**, then "Send Wubby some love" and the creator credit. Run time and golden bones are
-still tracked and saved, just not shown there. To count loves and link clicks, see [SETUP.md](SETUP.md).
+images) and **Play again**, then "Send Wubby some love" and the creator credit. Golden bones still decide the
+polaroid's gold border. To count loves and link clicks, see [SETUP.md](SETUP.md).
 
 The reward image is just the polaroid (1080×1350). Set `CONFIG.card.siteUrl` in `config.js` to the production
 URL; it is printed on the polaroid and used in share links (localhost/file URLs are never shown).

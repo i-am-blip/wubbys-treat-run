@@ -63,13 +63,12 @@
     <!-- Level start banner (fades in and out; gameplay keeps running) -->
     <div id="levelBanner" class="level-banner" aria-live="polite"><div class="ui-banner banner-ribbon"><span id="levelBannerText"></span></div></div>
 
-    <!-- Title: logo, then Play, then the story line; everything else stays quiet -->
+    <!-- Title: logo, then the story line, then Play; everything else stays quiet -->
     <div id="titleScreen" class="screen title-screen hidden">
         <div class="title-stack">
             <img class="logo" src="public/assets/game/logo.png" alt="Wubby's Treat Run">
-            <button id="playBtn" class="ui-btn-primary btn btn-primary play-btn">PLAY</button>
-            <p id="titleBest" class="title-best hidden"></p>
             <p class="story">A sneaky squirrel stole Wubby's treat! Chase it through 3 levels and get it back.</p>
+            <button id="playBtn" class="ui-btn-primary btn btn-primary play-btn">PLAY</button>
             <p id="levelError" class="error hidden"></p>
         </div>
         <p id="titleLove" class="title-love hidden" aria-live="polite"></p>

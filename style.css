@@ -393,23 +393,20 @@ a:focus-visible {
     45% { transform: scale(1.06); }
 }
 
-.title-best {
-    font-size: calc(6 * var(--px));
-    font-weight: 500;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Secondary text, legible over the light scrim */
+/* The story sits between logo and Play: dark brown with a pixel-stepped cream outline (1px in each direction)
+   plus a soft cream glow, so it reads over the busy scene */
 .story {
     max-width: 44ch;
-    margin-top: calc(2 * var(--px));
-    font-size: calc(8 * var(--px));
-    font-weight: 500;
-    line-height: 1.4;
-    color: var(--ink);
+    margin: 0 0 calc(2 * var(--px));
+    font-size: calc(9 * var(--px));
+    font-weight: 600;
+    line-height: 1.35;
+    color: #3B2416;
     text-wrap: balance;
-    text-shadow: 0 0 calc(3 * var(--px)) rgba(255, 246, 228, 0.9), 0 1px 0 rgba(255, 246, 228, 0.7);
+    text-shadow:
+        1px 0 0 #fff3dc, -1px 0 0 #fff3dc, 0 1px 0 #fff3dc, 0 -1px 0 #fff3dc,
+        1px 1px 0 #fff3dc, -1px 1px 0 #fff3dc, 1px -1px 0 #fff3dc, -1px -1px 0 #fff3dc,
+        0 0 calc(4 * var(--px)) rgba(255, 243, 220, 0.85);
 }
 
 /* Social proof, quiet, near the bottom */
