@@ -1,36 +1,35 @@
-# Setup: love counter and CTA clicks
+# Setup: deploying on Vercel, love counter and link clicks
 
-Wubby's Treat Run counts two things in Upstash Redis, through serverless routes in `netlify/functions/`:
+The game is a static site (`npm run build` → `dist/`) plus two serverless functions in `api/`:
 
 | Route | What it does |
 |-------|--------------|
-| `POST /api/love` | `INCR love:count`, returns `{ count }`. Max 3 per IP per day (over the limit it returns the count unchanged) |
-| `GET /api/love` | Returns `{ count }`. Shown to players as "♥ N players loved this" on the title and end screens |
-| `POST /api/cta-click` `{ "target": "linkedin" \| "portfolio" }` | `INCR cta:{target}`, returns `{ count }` |
+| `GET /api/love` | `{ count }` (max 120 per IP per hour). Shown as "♥ N players loved this" on the title and end screens |
+| `POST /api/love` | `INCR love:count` → `{ count }`. Max 3 per IP per day; over the limit the count comes back unchanged |
+| `POST /api/cta-click` `{ "target": "linkedin" \| "portfolio" }` | `INCR cta:{target}` → `{ count }` (max 20 per IP per day) |
 
-The browser also allows one love per visitor (a `localStorage` flag). Raw IPs are never stored: rate-limit keys
-use a salted SHA-256 hash of the IP and expire after two days.
+Other methods get 405, bodies over 1 KB 413, bad bodies 400, and errors a generic 500. Browsers on other sites
+can't write (CORS allows only https://play.devmehtaa.in, https://www.devmehtaa.in and https://devmehtaa.in;
+localhost too outside production). Rate limits use a salted SHA-256 of the IP; raw IPs are never stored.
 
-Without the env vars everything still works: the routes answer `{ count: null }`, make no network calls, and
-the love count simply isn't shown.
+Without Redis the routes answer `{ count: null }` and the game hides the count. Without `LOVE_HASH_SALT` nothing
+is written.
 
-## Environment variables (Netlify)
-
-Set these under **Site configuration → Environment variables**, then redeploy:
+## Environment variables
 
 | Variable | Value |
 |----------|-------|
-| `UPSTASH_REDIS_REST_URL` | REST URL of your Upstash database (`https://….upstash.io`) |
-| `UPSTASH_REDIS_REST_TOKEN` | REST token of that database (also salts the IP hashes) |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Upstash REST credentials, or the `KV_REST_API_URL` + `KV_REST_API_TOKEN` pair the Vercel Marketplace integration sets |
+| `LOVE_HASH_SALT` | A random secret: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
 
-To get them: sign in at [console.upstash.com](https://console.upstash.com), **Create Database** (Redis, free tier,
-a region near your Netlify functions such as `us-east-1`), then copy both values from its **REST API** section.
-The **Data Browser** there shows `love:count`, `cta:linkedin` and `cta:portfolio` at any time.
+Redis: Vercel dashboard → the project → **Storage** → **Create Database** → **Upstash** (Marketplace, free plan)
+→ connect it to the project. The `Data Browser` in Upstash shows `love:count`, `cta:linkedin` and `cta:portfolio`.
 
-## Deploying the functions
+## Deploying
 
-Netlify Drop (drag and drop) doesn't deploy functions. Deploy from **Git** (import the GitHub repo in Netlify;
-`netlify.toml` sets the publish and functions folders, and Netlify installs `@upstash/redis` from
-`package.json`) or with the **Netlify CLI** (`npx netlify-cli deploy --prod` from the project folder).
+The project is connected to the GitHub repo, so pushing `main` deploys production and other branches get preview
+URLs. `vercel.json` sets the build (`npm run build` → `dist/`), cache headers (hashed `/assets/*` immutable for a
+year, HTML `no-cache`) and the security headers (CSP, nosniff, Referrer-Policy, Permissions-Policy, HSTS,
+frame-ancestors for devmehtaa.in).
 
-Check it: `https://<your-site>/api/love` should return `{"count":0}`, or `{"count":null}` without the env vars.
+From the CLI: `npx vercel` (preview) and `npx vercel --prod` (production).
