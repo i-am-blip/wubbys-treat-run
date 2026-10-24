@@ -1,41 +1,50 @@
 // Final art: atlases, tiles, backgrounds and UI built by scripts/build_assets.py.
 // Metadata comes from public/assets/game/manifest.js (window.ART_MANIFEST), so no fetch is needed.
+// In production, scripts/build-dist.mjs writes window.ASSET_MAP: each file name -> its content-hashed URLs, WebP
+// first and the PNG / JPG as the fallback. In development the files load straight from public/assets/game/.
 
 const ART_DIR = 'public/assets/game/';
 const art = { meta: window.ART_MANIFEST || {}, images: {} };
+const assetUrls = (file) => (window.ASSET_MAP && window.ASSET_MAP[file]) || [ART_DIR + file];
 
 // Title scene for this screen shape: the tall one on portrait screens (aspect below ~0.8), the wide one otherwise
 const titleSceneFile = () => (innerWidth / Math.max(1, innerHeight) < 0.8 ? 'title_mobile.png' : 'title_bg.png');
 
-function loadArt(onDone) {
-    // Only the title scene this screen uses loads up front; the other one loads if the screen is turned
-    const files = new Set([titleSceneFile(), 'logo.png', 'card_photo.jpg', 'card_photo_gold.jpg']);
-    for (const m of Object.values(art.meta)) {
-        if (m.image) files.add(m.image);
-        if (m.layers) m.layers.forEach(l => files.add(l.image));
-    }
-    let pending = files.size;
-    const done = () => { if (--pending === 0) onDone(); };
-    files.forEach(f => {
+// One image, tried URL by URL (WebP, then the fallback). Resolves with the decoded image; a failure rejects and is
+// forgotten, so a later call retries it.
+const imageLoads = {};
+function loadImage(file) {
+    if (imageLoads[file]) return imageLoads[file];
+    const urls = assetUrls(file);
+    imageLoads[file] = new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = done;
-        img.onerror = () => { console.warn('Missing art', f); done(); };
-        img.src = ART_DIR + f;
-        art.images[f] = img;
+        let i = 0;
+        img.decoding = 'async';
+        // decode() keeps the (large) decode off the main thread, so drawing it later doesn't stall a frame
+        img.onload = () => (img.decode ? img.decode() : Promise.resolve()).catch(() => {}).then(() => { art.images[file] = img; resolve(img); });
+        img.onerror = () => {
+            if (++i < urls.length) { img.src = urls[i]; return; }
+            delete imageLoads[file];
+            reject(new Error(`Could not load ${file}`));
+        };
+        img.src = urls[0];
     });
+    return imageLoads[file];
 }
 
+// Several images; onProgress(done, total) after each one
+function loadImages(files, onProgress) {
+    let done = 0;
+    return Promise.all(files.map(f => loadImage(f).then(img => { if (onProgress) onProgress(++done, files.length); return img; })));
+}
+
+// A loaded image, or undefined (drawing code skips images that aren't there yet)
 const artImage = (file) => art.images[file];
 
-// An image that isn't preloaded: starts loading on first request, returns null until it's ready
+// An image that isn't preloaded (the other title scene after a rotation): starts loading on first request
 function lazyArtImage(file) {
-    if (!art.images[file]) {
-        const img = new Image();
-        img.src = ART_DIR + file;
-        art.images[file] = img;
-    }
-    const img = art.images[file];
-    return img.complete && img.naturalWidth ? img : null;
+    if (!art.images[file]) loadImage(file).catch(() => {});
+    return art.images[file] || null;
 }
 
 function anim(sheet, name) {

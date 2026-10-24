@@ -179,7 +179,7 @@ const sound = {
         if (!m || this.music.loading || location.protocol === 'file:') return;
         const probe = document.createElement('audio');
         const ogg = probe.canPlayType && probe.canPlayType('audio/ogg; codecs="vorbis"');
-        const get = (format) => fetch(ART_DIR + m[format]).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
+        const get = (format) => fetch(assetUrls(m[format])[0]).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
             .then(data => { this.music.data = data; this.music.format = format; });
         this.music.loading = (ogg ? get('ogg').catch(() => get('mp3')) : get('mp3')).catch(() => null);
         this.music.loading.then(() => { if (this.ctx && this.state.wanted) this.startMusic(); });
@@ -195,7 +195,7 @@ const sound = {
                 if (!m.buffer) m.buffer = await decode(m.data);
             } catch (e) {
                 if (m.format !== 'ogg') throw e;
-                await fetch(ART_DIR + art.meta.music.mp3).then(r => r.arrayBuffer()).then(d => { m.data = d; m.format = 'mp3'; });
+                await fetch(assetUrls(art.meta.music.mp3)[0]).then(r => r.arrayBuffer()).then(d => { m.data = d; m.format = 'mp3'; });
                 m.buffer = await decode(m.data);
             }
             // Some decoders add a few samples of padding at the start: loop from the first audible sample

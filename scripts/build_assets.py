@@ -979,7 +979,9 @@ def build_backgrounds():
             else:
                 img, how = crossfade(img, 32, binary=mode != 'soft'), f'32px crossfade (best repeat err {err:.0f})'
             im = Image.fromarray(img.astype(np.uint8), 'RGBA')
-            im.save(OUT / f'bg_{theme}_{i + 1}.png')
+            # The near layer (last) isn't drawn in levels any more: only its size goes in the JSON (layout uses it)
+            if i < len(strips) - 1:
+                im.save(OUT / f'bg_{theme}_{i + 1}.png')
             layers.append(im)
             opaque = (np.asarray(im)[..., 3] > 0).mean()
             notes.append(f'{theme} layer {i + 1}: {im.width}x{im.height} {how}, {opaque:.0%} opaque')
@@ -1046,7 +1048,7 @@ def build_title_logo():
     og = scene.crop(((scene.width - 1200) // 2, (scene.height - 630) // 2, (scene.width - 1200) // 2 + 1200, (scene.height - 630) // 2 + 630))
     big = logo.resize((logo.width * 3, logo.height * 3), Image.NEAREST)
     og.alpha_composite(big, ((1200 - big.width) // 2, (630 - big.height) // 2 - 40))
-    og.convert('RGB').save(OUT / 'og_image.png', optimize=True)
+    og.convert('RGB').save(OUT / 'og_image.jpg', quality=86, optimize=True, progressive=True)
     # left: title scene alone; right: logo alone on a dark background
     lg = logo.resize((logo.width * 2, logo.height * 2), Image.NEAREST)
     pv = Image.new('RGBA', (title.width // 2 + lg.width + 30, max(title.height // 2, lg.height)), (30, 32, 44, 255))
@@ -1066,6 +1068,41 @@ def build_cards():
     pv.paste(a, (0, 0)); pv.paste(b, (310, 0))
     pv.save(PREVIEW / 'card_photos.png')
     return ['card photos 900x900 (LANCZOS, JPEG q90)']
+
+
+# ================================================================= web formats
+# WebP next to every image the game loads (the PNG / JPG stays as the fallback):
+#   pixel art (atlases, tiles, background layers, logo) -> lossless WebP, never lossy;
+#   illustrations (title scenes) -> WebP q88; polaroid photos -> WebP q85.
+WEBP_LOSSY = {'title_bg.png': 88, 'title_mobile.png': 88, 'card_photo.jpg': 85, 'card_photo_gold.jpg': 85}
+
+
+def build_web_formats():
+    notes, saved = [], 0
+    for f in sorted(list(OUT.glob('*.png')) + list(OUT.glob('card_photo*.jpg'))):
+        if f.name in ('ui.png', 'favicon.png') or f.name.endswith('_4.png'):
+            continue  # the UI atlas and the near background layers aren't used at runtime
+        im = Image.open(f)
+        im = im.convert('RGBA') if im.mode in ('RGBA', 'LA', 'P') else im.convert('RGB')
+        out = f.with_suffix('.webp')
+        if f.name in WEBP_LOSSY:
+            im.convert('RGB').save(out, quality=WEBP_LOSSY[f.name], method=6)
+        else:
+            im.save(out, lossless=True, quality=100, method=6)
+        saved += f.stat().st_size - out.stat().st_size
+    notes.append(f'webp: {len(list(OUT.glob("*.webp")))} files, {saved // 1024} KB smaller than the PNG/JPG fallbacks')
+    # Favicon: Wubby's first idle frame, scaled by a whole number, centred in 64x64
+    meta = json.loads((OUT / 'wubby.json').read_text())
+    fr = meta['frames'][meta['animations']['idle']['frames'][0]]
+    sheet = Image.open(OUT / meta['image']).convert('RGBA')
+    cell = sheet.crop((fr['x'], fr['y'], fr['x'] + fr['w'], fr['y'] + fr['h']))
+    k = max(1, min(64 // cell.width, 64 // cell.height))
+    cell = cell.resize((cell.width * k, cell.height * k), Image.NEAREST)
+    icon = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    icon.alpha_composite(cell, ((64 - cell.width) // 2, (64 - cell.height) // 2))
+    icon.save(OUT / 'favicon.png', optimize=True)
+    notes.append('favicon 64x64 from the idle frame')
+    return notes
 
 
 # ================================================================= music
@@ -1170,6 +1207,7 @@ def build_all():
     notes += build_title_logo()
     notes += build_cards()
     notes += build_music()
+    notes += build_web_formats()
     notes += write_manifest()
     print('\n'.join(notes))
 
@@ -1177,5 +1215,7 @@ def build_all():
 if __name__ == '__main__':
     if sys.argv[1:] == ['music']:  # rebuild only the music
         print('\n'.join(build_music() + write_manifest()))
+    elif sys.argv[1:] == ['web']:  # rebuild only the WebP versions and the favicon
+        print('\n'.join(build_web_formats()))
     else:
         build_all()

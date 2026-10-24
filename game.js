@@ -145,6 +145,7 @@ function newRun() {
 function startLevel(index, retry = false, showBanner = true) {
     const run = game.run;
     const level = levels[index];
+    prepareBackground(level.theme); // normally already done in the background
     run.levelIndex = index;
     if (!retry) run.levelStart = { hearts: run.hearts, nextHeartAt: run.nextHeartAt, extraBones: run.extraBones };
     run.goldens[index] = new Set();
@@ -262,7 +263,7 @@ function handleKey(e, isDown) {
     if (code === 'Escape' || code === 'KeyP') togglePause();
     if (code === 'KeyM') toggleMute();
     if (code === 'Enter' && game.screen === 'intro') finishIntro();
-    if ((code === 'Enter' || code === 'Space') && game.screen === 'title' && !levelError) { sound.unlock(); newRun(); }
+    if ((code === 'Enter' || code === 'Space') && game.screen === 'title' && !levelError && !loader.busy) { sound.unlock(); playNewRun(); }
 }
 
 function toggleMute() {
@@ -308,7 +309,7 @@ document.addEventListener('click', (e) => {
 $('pauseBtn').addEventListener('click', togglePause);
 $('muteBtn').addEventListener('click', toggleMute);
 
-$('playBtn').addEventListener('click', () => { sound.unlock(); newRun(); });
+$('playBtn').addEventListener('click', () => { sound.unlock(); playNewRun(); });
 $('resumeBtn').addEventListener('click', togglePause);
 $('pauseCloseBtn').addEventListener('click', togglePause);
 // A tap on the dimmed backdrop (outside the card) resumes too
@@ -398,7 +399,11 @@ function update(dt) {
             // Keep gravity so Wubby lands if the pedestal was touched mid-jump
             stepPlayer(game.lv.level, game.lv.player, { left: false, right: false, jumpPressed: false, jumpHeld: false }, dt);
             setAnim(game.lv.player, 'munch', dt);
-            if ((game.timer -= dt) <= 0) startLevel(game.run.levelIndex + 1);
+            if ((game.timer -= dt) <= 0) {
+                game.timer = Infinity; // once
+                const next = game.run.levelIndex + 1;
+                withAssets(`level${next}`, () => startLevel(next));
+            }
             break;
         case 'ending': updateEnding(dt); break;
     }
@@ -414,6 +419,18 @@ function updateControlsHint() {
     const show = level.index === 0 && !(c.moved && c.jumped);
     if (!show && level.index === 0) c.learned = true;
     $('controlsHint').classList.toggle('show', show);
+}
+
+// Spikes only hurt on their pointy lower part (CONFIG.spikeHitbox); one reused box, no allocation per check
+const spikeBox = { x: 0, y: 0, width: 0, height: 0 };
+function touchesSpike(level, p) {
+    const { inset, top } = CONFIG.spikeHitbox;
+    for (let i = 0; i < level.spikes.length; i++) {
+        const s = level.spikes[i];
+        spikeBox.x = s.x + inset; spikeBox.y = s.y + top; spikeBox.width = s.width - inset * 2; spikeBox.height = s.height - top;
+        if (overlaps(p, spikeBox)) return true;
+    }
+    return false;
 }
 
 function updatePlaying(dt) {
@@ -461,7 +478,7 @@ function updatePlaying(dt) {
         if (lv.chase) { sound.fall(); chaseRespawn(); } else hurt('gap', true);
         return;
     }
-    if (p.invincible <= 0 && level.spikes.some(s => overlaps(p, spikeHitbox(s)))) { hurt('spike', true); return; }
+    if (p.invincible <= 0 && touchesSpike(level, p)) { hurt('spike', true); return; }
 
     collectBones(p);
 
@@ -852,7 +869,7 @@ function updateEnding(dt) {
             break;
         case 'wag':
             setAnim(p, 'celebrate', dt);
-            if (e.t > 1.8) finishRun();
+            if (e.t > 1.8 && !e.finishing) { e.finishing = true; withAssets('end', finishRun); }
             break;
     }
 }
@@ -925,34 +942,56 @@ $('copyImageBtn').addEventListener('click', async () => {
     }
 });
 
-$('playAgainBtn').addEventListener('click', () => { sound.unlock(); newRun(); });
+$('playAgainBtn').addEventListener('click', () => { sound.unlock(); playNewRun(); });
 
 // ---------- Effects, crumbs & camera ----------
 // Sprite effects play once (or for `life` seconds when looping) and drift by vy
-function spawnEffect(sheet, name, x, y, flip = false, opts = {}) {
+// Effects and crumbs come from small pools and are compacted in place: no garbage while playing
+const effectPool = [], particlePool = [];
+const NO_OPTS = {};
+
+function spawnEffect(sheet, name, x, y, flip = false, opts = NO_OPTS) {
     const a = anim(sheet, name);
-    game.effects.push({ sheet, name, x, y, flip, t: 0, vy: opts.vy || 0, life: opts.life || (a.loop ? 0.5 : animDuration(sheet, name)) });
+    const f = effectPool.pop() || {};
+    f.sheet = sheet; f.name = name; f.x = x; f.y = y; f.flip = flip; f.t = 0;
+    f.vy = opts.vy || 0;
+    f.life = opts.life || (a.loop ? 0.5 : animDuration(sheet, name));
+    game.effects.push(f);
 }
 
 function updateEffects(dt) {
-    game.effects = game.effects.filter(f => {
+    const list = game.effects;
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+        const f = list[i];
         f.t += dt;
         f.y += f.vy * dt;
-        return f.t < f.life;
-    });
+        if (f.t < f.life) list[n++] = f; else effectPool.push(f);
+    }
+    list.length = n;
 }
 
 function crumbs(x, y, count) {
     for (let i = 0; i < count; i++) {
-        game.particles.push({ x, y, vx: (Math.random() - 0.5) * 200, vy: -Math.random() * 160 + 20, life: 0.4 + Math.random() * 0.3, color: Math.random() < 0.5 ? '#d9a066' : '#a8673a' });
+        const pt = particlePool.pop() || {};
+        pt.x = x; pt.y = y;
+        pt.vx = (Math.random() - 0.5) * 200;
+        pt.vy = -Math.random() * 160 + 20;
+        pt.life = 0.4 + Math.random() * 0.3;
+        pt.color = Math.random() < 0.5 ? '#d9a066' : '#a8673a';
+        game.particles.push(pt);
     }
 }
 
 function updateParticles(dt) {
-    game.particles = game.particles.filter(pt => {
+    const list = game.particles;
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+        const pt = list[i];
         pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 540 * dt;
-        return (pt.life -= dt) > 0;
-    });
+        if ((pt.life -= dt) > 0) list[n++] = pt; else particlePool.push(pt);
+    }
+    list.length = n;
 }
 
 // More room ahead of Wubby than behind (a bit more again on narrow portrait screens). With touch controls the
@@ -1140,10 +1179,26 @@ const BG_TOP_FADE = 16;
 const BG_BOTTOM_FADE = 24;
 const bgLayers = {}; // theme -> pre-rendered layer canvases
 
-function prepareBackgrounds() {
-    for (const [key, bg] of Object.entries(art.meta)) {
-        if (!key.startsWith('bg_')) continue;
-        bgLayers[key] = bg.layers.map((l, i) => {
+// The tinted, faded layer canvases for a theme (the near layer isn't drawn in levels). prepareBackground finishes
+// them now; prepareBackgroundIdle makes one per idle slice, so loading in the background never blocks a frame.
+function prepareBackground(theme) {
+    while (prepareBackgroundLayer(theme)) { /* until done */ }
+}
+
+function prepareBackgroundIdle(theme) {
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 16));
+    idle(() => { if (prepareBackgroundLayer(theme)) prepareBackgroundIdle(theme); });
+}
+
+// Makes the next missing layer; false once they're all there
+function prepareBackgroundLayer(theme) {
+    const key = `bg_${theme}`, bg = art.meta[key];
+    const done = bgLayers[key] || (bgLayers[key] = []);
+    const wanted = bg.layers.length - 1;
+    if (done.length >= wanted) return false;
+    {
+        const i = done.length, l = bg.layers[i];
+        done.push((() => {
             const img = artImage(l.image);
             const c = document.createElement('canvas');
             c.width = l.w;
@@ -1179,8 +1234,9 @@ function prepareBackgrounds() {
             }
             g.globalCompositeOperation = 'source-over';
             return c;
-        });
+        })());
     }
+    return done.length < wanted;
 }
 
 // Vertical placement (top y of each layer) for the layers drawn in levels (all but the near one, see drawBackground).
@@ -1234,23 +1290,31 @@ function drawBackground() {
     const W = view.width, H = view.height;
     const key = `bg_${game.lv.level.theme}`;
     const bg = art.meta[key];
-    const layers = (bgLayers[key] || []).slice(0, -1);
+    const layers = bgLayers[key] || NO_LAYERS;
     const camX = Math.round(game.camera.x);
     const groundY = groundLine(game.lv.level) - Math.round(game.camera.y);
-    const tops = backgroundLayout(bg, H, groundY);
+    const tops = cachedLayout(bg, H, groundY);
     // Above the sky layer (very tall views only): a soft zenith gradient into the sky colour, never a flat band.
     // Gradients are cached: they only change with the theme, the view size or the camera's vertical position.
     const g = bgGradients(key, bg, tops[0], groundY);
     ctx.fillStyle = g.sky;
     ctx.fillRect(0, 0, W, H);
-    layers.forEach((img, i) => {
-        const w = img.width;
+    for (let i = 0; i < layers.length; i++) {
+        const img = layers[i], w = img.width;
         const offset = Math.round(((camX * bg.factors[i]) % w + w) % w);
         for (let x = -offset; x < W; x += w) ctx.drawImage(img, x, tops[i]);
-    });
+    }
     // Depth haze from just above the ground line down: what shows through a gap reads as far away, never as a floor
     ctx.fillStyle = g.deep;
     ctx.fillRect(0, groundY - T * 2, W, H - groundY + T * 2);
+}
+
+const NO_LAYERS = [];
+const layoutCache = { bg: null, H: 0, groundY: 0, tops: null };
+function cachedLayout(bg, H, groundY) {
+    const c = layoutCache;
+    if (c.bg !== bg || c.H !== H || c.groundY !== groundY) { c.bg = bg; c.H = H; c.groundY = groundY; c.tops = backgroundLayout(bg, H, groundY); }
+    return c.tops;
 }
 
 const bgGradientCache = { key: '', value: null };
@@ -1533,13 +1597,24 @@ function setHud(id, value, html = false) {
 function updateHud(dt) {
     if (!game.run || !game.lv) return;
     const run = game.run;
-    const heartSlots = Math.max(CONFIG.health.startHearts, run.hearts);
-    let hearts = '<span class="hearts-full">';
-    for (let i = 0; i < heartSlots; i++) hearts += `<span class="${i < run.hearts ? 'ui-icon-heart' : 'ui-icon-heart-empty'}"></span>`;
-    hearts += `</span><span class="hearts-compact"><span class="ui-icon-heart"></span><span class="hud-text">${run.hearts}</span></span>`;
-    setHud('hearts', hearts, true);
-    setHud('bones', `${heldCount()}/${game.lv.level.bones.length}`);
-    setHud('goldens', `${goldenTotal()}/${TOTAL_GOLDENS}`);
+    // Text is only rebuilt when one of the numbers changes (no strings per frame)
+    if (hudCache.heartsN !== run.hearts) {
+        hudCache.heartsN = run.hearts;
+        const heartSlots = Math.max(CONFIG.health.startHearts, run.hearts);
+        let hearts = '<span class="hearts-full">';
+        for (let i = 0; i < heartSlots; i++) hearts += `<span class="${i < run.hearts ? 'ui-icon-heart' : 'ui-icon-heart-empty'}"></span>`;
+        hearts += `</span><span class="hearts-compact"><span class="ui-icon-heart"></span><span class="hud-text">${run.hearts}</span></span>`;
+        setHud('hearts', hearts, true);
+    }
+    const held = heldCount(), total = game.lv.level.bones.length, goldens = goldenTotal();
+    if (hudCache.held !== held || hudCache.total !== total) {
+        hudCache.held = held; hudCache.total = total;
+        setHud('bones', `${held}/${total}`);
+    }
+    if (hudCache.goldensN !== goldens) {
+        hudCache.goldensN = goldens;
+        setHud('goldens', `${goldens}/${TOTAL_GOLDENS}`);
+    }
     const muted = save.data.muted;
     if (hudCache.muted !== muted) {
         hudCache.muted = muted;
@@ -1566,9 +1641,10 @@ function updateJourney(dt) {
     const target = journeyTarget();
     game.journey += (target - game.journey) * Math.min(1, dt * 6);
     if (Math.abs(target - game.journey) < 0.0005) game.journey = target;
-    const pct = (game.journey * 100).toFixed(2) + '%';
-    if (hudCache.journey !== pct) {
-        hudCache.journey = pct;
+    const step = Math.round(game.journey * 10000); // 0.01% steps, compared as a number
+    if (hudCache.journey !== step) {
+        hudCache.journey = step;
+        const pct = `${step / 100}%`;
         $('journeyFill').style.width = pct;
         $('journeyFill').classList.toggle('hidden', game.journey < 0.01);
         $('journeyWubby').style.left = pct;
@@ -1583,9 +1659,12 @@ function updateJourney(dt) {
 // Dividers and level numbers for the journey bar, one segment per level
 function buildJourney() {
     const n = Math.max(1, levels.length);
-    let dividers = '';
-    for (let i = 1; i < n; i++) dividers += `<span class="journey-divider ui-bar-divider" style="left: ${(i * 100 / n).toFixed(3)}%"></span>`;
-    $('journeyInner').insertAdjacentHTML('beforeend', dividers);
+    for (let i = 1; i < n; i++) {
+        const d = document.createElement('span');
+        d.className = 'journey-divider ui-bar-divider';
+        d.style.left = `${(i * 100 / n).toFixed(3)}%`;
+        $('journeyInner').appendChild(d);
+    }
     $('journeyLabels').innerHTML = levels.map((_, i) => `<span>${i + 1}</span>`).join('');
 }
 buildJourney();
@@ -1618,13 +1697,108 @@ function gameLoop(now) {
     requestAnimationFrame(gameLoop);
 }
 
+// ---------- Asset loading ----------
+// The title screen needs only its scene and the fonts. Everything else streams in after the title is interactive,
+// in play order: level 1 (sprites + garden art), level 2, level 3, the end screen's photos, then the music.
+// Starting something whose art isn't there yet shows the loading screen with real progress (files done / total);
+// a failed file shows a retry screen.
+const SPRITE_SHEETS = ['wubby', 'items', 'gang_effects', 'hazards', 'thief'];
+function groupFiles(group) {
+    if (group === 'title') return [titleSceneFile()];
+    if (group === 'end') return ['card_photo.jpg', 'card_photo_gold.jpg'];
+    const level = levels[+group.slice(5)];
+    const files = [art.meta[`tiles_${level.theme}`].image, ...art.meta[`bg_${level.theme}`].layers.slice(0, -1).map(l => l.image)];
+    return group === 'level0' ? SPRITE_SHEETS.map(s => art.meta[s].image).concat(files) : files;
+}
+
+const loader = { groups: {}, busy: false };
+function loadGroup(group) {
+    let g = loader.groups[group];
+    if (g && (g.ready || g.pending)) return g;
+    g = loader.groups[group] = { done: 0, total: 1, ready: false, pending: null, onProgress: null };
+    const files = groupFiles(group);
+    g.total = files.length + (group === 'title' ? 1 : 0);
+    const fonts = group === 'title' && document.fonts ? document.fonts.load(`600 16px ${PIXEL_FONT}`).catch(() => {}).then(() => tick()) : null;
+    const tick = () => { g.done++; if (g.onProgress) g.onProgress(g.done / g.total); };
+    g.pending = Promise.all([loadImages(files, tick), fonts]).then(() => {
+        if (group.startsWith('level')) prepareBackgroundIdle(levels[+group.slice(5)].theme);
+        g.ready = true;
+        g.pending = null;
+    }, (err) => { g.pending = null; throw err; });
+    return g;
+}
+
+function showLoading(text, progress) {
+    $('loadingScreen').classList.remove('hidden');
+    $('loadingError').classList.add('hidden');
+    $('retryBtn').classList.add('hidden');
+    $('loadingText').textContent = text;
+    $('loadingFill').style.width = `${Math.round(progress * 100)}%`;
+    $('loadingTrack').setAttribute('aria-valuenow', Math.round(progress * 100));
+}
+
+function showLoadError(retry) {
+    $('loadingScreen').classList.remove('hidden');
+    $('loadingError').classList.remove('hidden');
+    $('retryBtn').classList.remove('hidden');
+    $('retryBtn').onclick = () => { $('retryBtn').classList.add('hidden'); retry(); };
+    $('retryBtn').focus();
+}
+
+// Run fn once a group's art is there; meanwhile the loading screen shows its progress
+function withAssets(group, fn, label = 'Loading…') {
+    const g = loadGroup(group);
+    if (g.ready) { fn(); return; }
+    loader.busy = true;
+    showLoading(label, g.done / g.total);
+    g.onProgress = (p) => showLoading(label, p);
+    g.pending.then(() => {
+        loader.busy = false;
+        g.onProgress = null;
+        $('loadingScreen').classList.add('hidden');
+        fn();
+    }, () => showLoadError(() => withAssets(group, fn, label)));
+}
+
+function playNewRun() {
+    if (loader.busy) return;
+    withAssets('level0', newRun, 'Loading level 1…');
+}
+
+// After the title is interactive: everything else, one group at a time (failures retry when they're needed)
+function prefetchRest() {
+    const order = [...levels.map((_, i) => `level${i}`), 'end'];
+    const next = () => {
+        const group = order.shift();
+        if (!group) { sound.preloadMusic(); return; }
+        const g = loadGroup(group);
+        (g.pending || Promise.resolve()).then(next, next);
+    };
+    next();
+}
+
 function onAssetsLoaded() {
-    prepareBackgrounds();
+    $('loadingScreen').classList.add('hidden');
     setScreen('title');
     document.body.classList.add('ready');
     requestAnimationFrame(gameLoop);
-    // The music loads once the title is interactive, so it never delays first paint
-    (window.requestIdleCallback || ((f) => setTimeout(f, 200)))(() => { sound.preloadMusic(); loadMusicCredit(); });
+    // Everything else starts on the first interaction or 3s after the title is interactive, whichever comes first,
+    // so it never competes with the title's first paint
+    let started = false;
+    const EVENTS = ['pointerdown', 'pointermove', 'keydown', 'touchstart'];
+    const start = () => {
+        if (started) return;
+        started = true;
+        EVENTS.forEach(t => window.removeEventListener(t, start, true));
+        prefetchRest();
+        loadMusicCredit();
+    };
+    EVENTS.forEach(t => window.addEventListener(t, start, { capture: true, passive: true }));
+    setTimeout(start, 3000);
 }
 
-loadArt(onAssetsLoaded);
+function boot() {
+    withAssets('title', onAssetsLoaded);
+}
+// After every script has run (love.js and the rest define things the title screen uses)
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

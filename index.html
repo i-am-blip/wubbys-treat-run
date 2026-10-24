@@ -3,29 +3,51 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <!-- Zoom gestures are blocked on the game itself with touch-action (CSS), so the page stays zoomable for accessibility -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Wubby's Treat Run</title>
     <meta name="description" content="Wubby's Treat Run: a short pixel platformer. A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
     <meta name="theme-color" content="#71d2e0">
-    <!-- Link previews. Scrapers want absolute URLs: prefix the image path with your site URL once it's live. -->
+    <link rel="canonical" href="https://play.devmehtaa.in/">
+    <link rel="icon" type="image/png" href="public/assets/game/favicon.png">
+    <link rel="apple-touch-icon" href="public/assets/game/favicon.png">
+    <!-- Link previews (absolute URLs: scrapers don't resolve relative ones) -->
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://play.devmehtaa.in/">
     <meta property="og:site_name" content="Wubby's Treat Run">
     <meta property="og:title" content="Wubby's Treat Run">
     <meta property="og:description" content="A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
-    <meta property="og:image" content="public/assets/game/og_image.png">
+    <meta property="og:image" content="https://play.devmehtaa.in/og-image.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Wubby's Treat Run logo over a pixel-art garden with Wubby chasing the squirrel thief">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Wubby's Treat Run">
     <meta name="twitter:description" content="A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
-    <meta name="twitter:image" content="public/assets/game/og_image.png">
+    <meta name="twitter:image" content="https://play.devmehtaa.in/og-image.jpg">
+    <meta name="twitter:image:alt" content="Wubby's Treat Run logo over a pixel-art garden with Wubby chasing the squirrel thief">
+    <!-- What the title screen needs first: the pixel font and the title scene for this screen's shape -->
+    <link rel="preload" href="public/assets/fonts/pixelify-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="public/assets/game/title_mobile.png" as="image" media="(max-aspect-ratio: 4/5)">
+    <link rel="preload" href="public/assets/game/title_bg.png" as="image" media="(min-aspect-ratio: 4/5)">
     <link rel="stylesheet" href="public/assets/game/ui.css">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" aria-label="Wubby's Treat Run game"></canvas>
+
+    <!-- Loading: shown while the title screen's assets load, and again if a level's art isn't there yet -->
+    <div id="loadingScreen" class="loading-screen" role="status" aria-live="polite">
+        <div class="loading-card">
+            <p id="loadingText" class="loading-text">Loading…</p>
+            <div id="loadingTrack" class="ui-bar-track loading-track" role="progressbar" aria-label="Loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="loading-inner"><div id="loadingFill" class="ui-bar-fill loading-fill"></div></div>
+            </div>
+            <p id="loadingError" class="loading-error hidden">Part of the game didn't load. Check your connection and try again.</p>
+            <button id="retryBtn" class="ui-btn-primary btn btn-primary hidden">Try again</button>
+        </div>
+    </div>
 
     <!-- HUD -->
     <div id="hud" class="hud hidden">

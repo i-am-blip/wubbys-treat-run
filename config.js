@@ -90,7 +90,7 @@ const CONFIG = {
         height: 1350,
         // Production URL printed on the polaroid and used in share links. When empty, the page's own URL is
         // used only if it is a real site (never localhost or file://); otherwise no URL is shown.
-        siteUrl: ''
+        siteUrl: 'https://play.devmehtaa.in'
     },
 
     // Creator credit on the end screen. A link whose URL is empty is hidden.

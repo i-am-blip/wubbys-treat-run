@@ -1,4 +1,40 @@
-@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Caveat:wght@400;700&display=swap');
+/* Self-hosted fonts (OFL, see CREDITS.md). Pixelify Sans is preloaded and the title waits for it, so text never
+   swaps in late; Caveat is only used on the polaroid and loads when the end screen draws it. */
+@font-face {
+    font-family: 'Pixelify Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: block;
+    src: url('public/assets/fonts/pixelify-sans-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Pixelify Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: block;
+    src: url('public/assets/fonts/pixelify-sans-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Caveat';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('public/assets/fonts/caveat-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Caveat';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('public/assets/fonts/caveat-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 /* UI art is drawn from public/assets/game/ui.css; its sizes are art pixels times --px.
    game.js sets the --px values to whole device pixels (screens, HUD, journey markers). */
@@ -1552,4 +1588,77 @@ body.touch .kbd-only {
     .creator {
         padding: 20px 22px;
     }
+}
+
+/* ---------- Loading / retry screen (pixel bar from the UI kit, real progress) ---------- */
+.loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: #1d1410;
+}
+
+.loading-card {
+    --px: var(--px-btn);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: min(320px, 86vw);
+    text-align: center;
+}
+
+.loading-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cream);
+    letter-spacing: 0.02em;
+}
+
+.loading-track {
+    --px: 2px;
+    width: 100%;
+}
+
+.loading-inner {
+    position: relative;
+    height: 100%;
+}
+
+.loading-fill {
+    --px: 2px;
+    position: absolute;
+    left: calc(-6 * var(--px));
+    top: 50%;
+    width: 0;
+    max-width: calc(100% + 12 * var(--px));
+    transform: translateY(-50%);
+    transition: width 200ms var(--ease-out);
+}
+
+.loading-error {
+    max-width: 32ch;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--cream);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-fill {
+        transition: none;
+    }
+}
+
+/* The title screen is there at once (no fade from 0): its text is the page's first meaningful paint */
+.title-screen {
+    animation: none;
+}
+
+/* The loading text paints before the pixel font arrives */
+.loading-text {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
