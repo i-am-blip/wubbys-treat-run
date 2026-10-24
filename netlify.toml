@@ -1,0 +1,6 @@
+# Static site from the project root, plus the API routes in netlify/functions (see SETUP.md)
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"

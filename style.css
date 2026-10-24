@@ -6,6 +6,7 @@
     --px: 2px;
     --px-hud: 1px;
     --px-mark: 1px;
+    --px-end: 2px;
     --ink: #5a3418;
     --ink-soft: #8a5a36;
     --cream: #fff3dc;
@@ -434,6 +435,7 @@ a:focus-visible {
 
 /* ---------- End screen: the polaroid is the hero ---------- */
 .card-screen {
+    --px: var(--px-end);
     background: rgba(28, 16, 8, 0.66);
 }
 
@@ -463,7 +465,7 @@ a:focus-visible {
 
 .card-canvas {
     display: block;
-    height: min(56vh, 560px);
+    height: min(52vh, 540px);
     width: auto;
     max-width: 88vw;
     aspect-ratio: 1080 / 1350;
@@ -474,16 +476,16 @@ a:focus-visible {
 /* What follows the photo rises in with a short stagger */
 .name-row,
 .card-actions,
-.secondary-row,
-.stats-row {
+.love,
+.end-footer {
     animation: rise 320ms var(--ease-out) both;
     font-weight: 400;
 }
 
 .name-row { animation-delay: 300ms; }
 .card-actions { animation-delay: 360ms; }
-.secondary-row { animation-delay: 420ms; }
-.stats-row { animation-delay: 460ms; }
+.love { animation-delay: 420ms; }
+.end-footer { animation-delay: 480ms; }
 
 @keyframes rise {
     from { opacity: 0; transform: translateY(8px); }
@@ -527,91 +529,180 @@ a:focus-visible {
     opacity: 0.7;
 }
 
+/* One primary action (Copy image), then the secondary Play again */
 .card-actions {
-    --px: var(--px-hud);
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: calc(10 * var(--px));
-}
-
-.action {
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: calc(2 * var(--px));
-    font-size: calc(11 * var(--px));
-    font-weight: 600;
-    color: var(--cream);
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
-    transition: transform 160ms var(--ease-out);
-}
-
-.action:active {
-    transform: scale(0.97);
-}
-
-.share-fallback {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
     gap: calc(4 * var(--px));
 }
 
-/* Secondary: copy link is a quiet text button */
-.secondary-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    color: rgba(255, 243, 220, 0.75);
+.card-status {
+    min-height: 1.4em;
+    margin-top: -4px;
+    font-size: 14px;
+    color: var(--cream);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
-.text-btn {
-    font-size: 13px;
-    color: rgba(255, 243, 220, 0.75);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: color 160ms ease;
+/* ---------- Send Wubby some love ---------- */
+.love {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.love-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px 9px 14px;
+    border-radius: 999px;
+    background: rgba(255, 243, 220, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(255, 243, 220, 0.22);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cream);
+    transition: transform 160ms var(--ease-out), background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.love-btn:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.love-heart {
+    position: relative;
+    font-size: 17px;
+    line-height: 1;
+    color: #ff8fa8;
+    transition: transform 200ms var(--ease-out);
+}
+
+.love-btn.sent {
+    background: rgba(255, 143, 168, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(255, 143, 168, 0.35);
+    cursor: default;
+}
+
+.love-particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    font-size: 11px;
+    color: #ff8fa8;
+    pointer-events: none;
+}
+
+.love-thanks {
+    min-height: 1.3em;
+    font-size: 14px;
+    color: rgba(255, 243, 220, 0.85);
+    opacity: 0;
+    transition: opacity 240ms ease;
+}
+
+.love-thanks.shown {
+    opacity: 1;
 }
 
 @media (hover: hover) and (pointer: fine) {
-    .text-btn:hover {
-        color: var(--cream);
+    .love-btn:hover:not(:disabled) {
+        background: rgba(255, 243, 220, 0.16);
     }
 }
 
-/* Quiet stats row */
-.stats-row {
-    --px: var(--px-mark);
+/* ---------- Creator block: calm and professional, a plain sans after the pixel UI ---------- */
+.creator {
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: min(420px, 100%);
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: rgba(34, 22, 14, 0.92);
+    box-shadow: inset 0 0 0 1px rgba(255, 243, 220, 0.12), 0 8px 24px rgba(0, 0, 0, 0.25);
+    font-family: var(--sans);
+    animation: creatorIn 420ms var(--ease-out) both;
+}
+
+@keyframes creatorIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.creator-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--cream);
+}
+
+.creator-tagline {
+    font-size: 13px;
+    line-height: 1.45;
+    text-wrap: balance;
+    color: rgba(255, 243, 220, 0.68);
+}
+
+.creator-links {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 6px 16px;
-    font-size: 16px;
-    font-weight: 600;
-    color: rgba(255, 243, 220, 0.7);
-    font-variant-numeric: tabular-nums;
+    gap: 8px 16px;
+    margin-top: 8px;
 }
 
-.golden-icons {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.golden-group {
+.creator-cta {
     display: inline-flex;
     align-items: center;
-    gap: 1px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: var(--cream);
+    font-size: 14px;
+    font-weight: 600;
+    color: #2a1a10;
+    text-decoration: none;
+    transition: transform 160ms var(--ease-out), background-color 200ms ease;
 }
 
-.golden-level {
-    margin-right: 4px;
+.creator-cta:active {
+    transform: scale(0.97);
+}
+
+.creator-link,
+.end-footer a {
+    color: rgba(255, 243, 220, 0.8);
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 243, 220, 0.35);
+    text-underline-offset: 3px;
+    transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.creator-link {
     font-size: 14px;
-    opacity: 0.8;
-    font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .creator-cta:hover {
+        background: #ffffff;
+    }
+
+    .creator-link:hover,
+    .end-footer a:hover {
+        color: var(--cream);
+        text-decoration-color: currentColor;
+    }
+}
+
+/* Quiet footer, always on the end screen */
+.end-footer {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 12px;
+    color: rgba(255, 243, 220, 0.5);
 }
 
 /* ---------- Touch controls (key caps from the UI atlas) ---------- */
@@ -685,8 +776,9 @@ a:focus-visible {
     .polaroid-drop,
     .name-row,
     .card-actions,
-    .secondary-row,
-    .stats-row,
+    .love,
+    .end-footer,
+    .creator,
     .logo {
         animation: fadeIn 200ms ease both;
     }
@@ -696,7 +788,8 @@ a:focus-visible {
     }
 
     .btn:active,
-    .action:active,
+    .love-btn:active:not(:disabled),
+    .creator-cta:active,
     .icon-btn:active {
         transform: none;
     }

@@ -92,5 +92,17 @@ const CONFIG = {
         siteUrl: ''
     },
 
-    storageKey: 'wubby-save-v1'
+    // Creator credit on the end screen. A link whose URL is empty is hidden.
+    creator: {
+        name: 'Dev Mehta',
+        tagline: 'Product designer who ships. Open to roles and freelance work.',
+        linkedinUrl: '',   // TODO: your LinkedIn profile URL
+        portfolioUrl: ''   // TODO: your portfolio URL
+    },
+
+    // "Send Wubby some love" and CTA counters: serverless routes in netlify/functions (see SETUP.md)
+    api: { love: '/api/love', ctaClick: '/api/cta-click' },
+
+    storageKey: 'wubby-save-v1',
+    loveKey: 'wubby-love-v1'   // one love per browser
 };

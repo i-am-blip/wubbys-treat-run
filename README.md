@@ -1,16 +1,18 @@
 # 🐶 Wubby's Treat Run
 
 A short pixel platformer in vanilla JavaScript and HTML5 Canvas. A squirrel stole Wubby's treat!
-Chase it through three hand-designed levels, catch the thief, and share your reward card.
+Chase it through three hand-designed levels, catch the thief, and copy your reward polaroid.
 
 ## Run it
 
 ```bash
-npx -y http-server -p 8000 -c-1
+npx -y http-server . -p 8000 -c-1
 ```
 
-Then open `http://localhost:8000`. Opening `index.html` directly also plays, but downloading or sharing
-the reward card needs the local server (browsers block reading back canvases drawn from `file://` images).
+The `.` matters: without it, http-server serves the `public/` folder instead of the game.
+
+Then open `http://localhost:8000`. Opening `index.html` directly also plays, but copying the reward
+polaroid needs the local server (browsers block reading back canvases drawn from `file://` images).
 
 ## Controls
 
@@ -30,7 +32,11 @@ the reward card needs the local server (browsers block reading back canvases dra
 - Bones: 25-30 per level, laid out as trails. Every 25 = +1 heart (max 5). Collect them all for
   "full belly ✓". Quick pickups play a rising note.
 - Squirrels (the thief's gang): stomp from above. Touching them from the side costs a heart.
-- Hazards (thorns, stakes, broken tiles, aerials, forks, burners) pulse over a red glow. Red is only used for things that hurt.
+- Readability rule: crisp + outlined + saturated = interactive (Wubby, squirrels, hazards, bones, flags,
+  pedestal, walkable tiles); soft + hazy = scenery (props and the parallax background).
+- Hazards (thorns, stakes, broken tiles, aerials, forks, burners) have a red (#D9483B) outline that pulses
+  with their 2 frames, over a faint red glow. Red is only used for things that hurt.
+- Gaps show the background. Falling in costs a heart and respawns you at the last checkpoint.
 - 3 hidden golden bones per level (9 total). Find them all for a gold-bordered card with a crown.
 - The game quietly helps if you keep dying in the same spot.
 
@@ -43,7 +49,9 @@ the reward card needs the local server (browsers block reading back canvases dra
 | `levels/` | Level tile maps. See [levels/README.md](levels/README.md) |
 | `game.js` | Screens, game state, intro, chase, end scene, rendering, HUD, save data |
 | `rewardCard.js` | The reward card image: `renderRewardCard(data, art)` → canvas |
-| `share.js` | Name validation, treat number, download/share/copy link |
+| `share.js` | Name validation, treat number, polaroid PNG (copy / download fallback) |
+| `love.js` | End screen: "Send Wubby some love" and the creator credit (`CONFIG.creator`) |
+| `netlify/` | API routes `/api/love` and `/api/cta-click` (Upstash Redis, Discord webhook). See [SETUP.md](SETUP.md) |
 | `analytics.js` | `track()` stub. Wire a provider in `analytics.send()` |
 | `tools/check-levels.js` | Verifies every level with the jump arc from config and real physics |
 | `art.js` | Loads the built art and draws atlas frames/animations |
@@ -51,6 +59,10 @@ the reward card needs the local server (browsers block reading back canvases dra
 | `scripts/build_assets.py` | Builds `public/assets/game/` from `assets/raw/` (previews in `assets/preview/`) |
 
 Progress (best time, most golden bones, completed) is saved in `localStorage`.
+
+The end screen: the polaroid, a name field, **Copy image** (falls back to a download where browsers can't copy
+images) and **Play again**, then "Send Wubby some love" and the creator credit. Run time and golden bones are
+still tracked and saved, just not shown there. To count loves and link clicks, see [SETUP.md](SETUP.md).
 
 The reward image is just the polaroid (1080×1350). Set `CONFIG.card.siteUrl` in `config.js` to the production
 URL; it is printed on the polaroid and used in share links (localhost/file URLs are never shown).

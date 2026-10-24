@@ -667,17 +667,17 @@ TILESETS = {
     'garden': {
         'ground': {'left': 0, 'mid': [1, 2, 3, 4], 'right': 5, 'fill': 'body:6'},
         'platform': {'left': 7, 'mid': [8, 9, 10], 'right': 11, 'single': 12},
-        'props': [14, 17, 19, 20, 21, 22, 23, 24, 26, 28, 13, 15, 25],  # no mailbox/gnome/red planter: red is for hazards
+        'props': [17, 19, 20, 22, 23, 24, 26, 28, 25],  # no mailbox/gnome/red planter (red is for hazards); no hedge/bench/crate/fence (read as platforms)
     },
     'rooftops': {
         'ground': {'left': 0, 'mid': [1, 3], 'right': 2, 'fill': 'body:1'},
         'platform': {'left': 8, 'mid': [9], 'right': 10, 'single': 9},
-        'props': [12, 14, 15, 19, 20, 6, 21, 16, 4],  # no antenna/flower box/weathervane: they read like hazards
+        'props': [12, 14, 15, 21, 16],  # no antenna/flower box/weathervane (read as hazards); no railing/chimney wall/water tank (platforms) or pigeon (enemy)
     },
     'kitchen': {
         'ground': {'left': 0, 'mid': [3, 1], 'right': 2, 'fill': 4},
         'platform': {'left': 0, 'mid': [3], 'right': 2, 'single': 3},
-        'props': [6, 7, 8, 9, 10, 11, 12, 14, 16, 17],  # no red dog bowl: red is for hazards
+        'props': [9, 10, 11, 12, 14, 17],  # no red dog bowl (red is for hazards), utensils (read as forks), chair/stool/cloth stack (read as steps)
     },
 }
 

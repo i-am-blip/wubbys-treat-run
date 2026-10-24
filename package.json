@@ -1,0 +1,12 @@
+{
+  "name": "wubbys-treat-run",
+  "private": true,
+  "description": "A short pixel platformer in vanilla JavaScript and HTML5 Canvas.",
+  "scripts": {
+    "start": "npx -y http-server . -p 8000 -c-1",
+    "check": "node tools/check-levels.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.34.0"
+  }
+}

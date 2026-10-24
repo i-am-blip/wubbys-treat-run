@@ -2,6 +2,9 @@
 
 Since `node`, `npm`, and `git` are not detected in your terminal, the easiest way to deploy your game is using **Drag & Drop** services.
 
+> The love counter and CTA tracking need Netlify Functions, which Netlify Drop doesn't deploy.
+> To use them, deploy from Git or the Netlify CLI instead: see [SETUP.md](SETUP.md).
+
 ## Option 1: Netlify Drop (Recommended)
 1. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
 2. Locate your project folder:

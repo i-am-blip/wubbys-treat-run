@@ -45,6 +45,8 @@ function resizeCanvas() {
     const hud = Math.max(1, Math.round(dpr * (vw >= 1400 ? 1.5 : 1)));
     const root = document.documentElement.style;
     root.setProperty('--px', `${ui / dpr}px`);
+    // The end screen's buttons stay comfortable touch targets on phones (still whole device pixels)
+    root.setProperty('--px-end', `${Math.max(ui, Math.round(dpr * 1.5)) / dpr}px`);
     root.setProperty('--px-hud', `${hud / dpr}px`);
     root.setProperty('--px-mark', `${Math.max(1, Math.floor(hud / 2)) / dpr}px`);
 }
@@ -840,11 +842,9 @@ function finishRun() {
         url: siteUrl().replace(/^https?:\/\//, '').replace(/\/$/, '')
     };
     $('nameInput').value = '';
-    renderGoldenSummary(game.card);
-    $('shareFallback').classList.add('hidden');
-    $('cardTimes').textContent = `Run ${formatTime(run.runTime)} · Best ${formatTime(save.data.bestTime)}` + (isBest ? ' · new best!' : '');
     $('cardStatus').textContent = '';
     setScreen('card');
+    showLoveSection();
     updateCard();
     // The handwriting font may still be loading; draw again once it is ready
     if (document.fonts && document.fonts.load) {
@@ -861,22 +861,6 @@ function updateCard() {
     renderRewardCard(c, { photo: artImage('card_photo.jpg'), photoGold: artImage('card_photo_gold.jpg') }, $('cardCanvas'));
 }
 
-function renderGoldenSummary(c) {
-    const groups = c.goldensByLevel.map((g, i) => {
-        let icons = '';
-        for (let k = 0; k < g.total; k++) {
-            icons += k < g.found
-                ? '<span class="ui-icon-golden" role="img" aria-label="found"></span>'
-                : '<span class="ui-icon-golden-empty" role="img" aria-label="missing"></span>';
-        }
-        return `<span class="golden-group"><span class="golden-level">L${i + 1}</span>${icons}</span>`;
-    }).join('');
-    $('goldenIcons').innerHTML = groups;
-    const missing = c.goldensByLevel.map((g, i) => ({ n: g.total - g.found, level: i + 1 })).filter(m => m.n > 0);
-    $('goldenHint').textContent = missing.map((m, k) => (k === 0 ? `${m.n} still hiding in level ${m.level}` : `${m.n} in level ${m.level}`)).join(', ');
-    $('goldenHint').classList.toggle('hidden', missing.length === 0);
-}
-
 $('nameInput').addEventListener('input', (e) => {
     // Live filter: only allowed characters, max 20; the card redraws as you type
     const el = e.target;
@@ -887,29 +871,25 @@ $('nameInput').addEventListener('input', (e) => {
 
 function cardStatus(text) { $('cardStatus').textContent = text; }
 
-$('downloadBtn').addEventListener('click', async () => {
-    await downloadCard($('cardCanvas'), game.card);
-    track('card_shared', { method: 'download' });
-    cardStatus('Saved!');
-});
-
-$('shareBtn').addEventListener('click', async () => {
-    const result = await shareCard($('cardCanvas'), game.card);
-    if (result === 'web_share') { track('card_shared', { method: 'web_share' }); cardStatus('Thanks for sharing!'); }
-    if (result === 'fallback') {
-        const links = shareLinks(game.card);
-        $('shareX').href = links.x;
-        $('shareLinkedIn').href = links.linkedin;
-        $('shareFallback').classList.remove('hidden');
+// Copy the polaroid PNG to the clipboard; where images can't be copied, download it instead and say so
+$('copyImageBtn').addEventListener('click', async () => {
+    const canvas = $('cardCanvas');
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        try {
+            // The blob is passed as a promise so Safari keeps the click's user activation
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': canvasToBlob(canvas) })]);
+            track('card_shared', { method: 'copy_image' });
+            cardStatus('Copied! Paste it anywhere');
+            return;
+        } catch (e) { /* not allowed here: download instead */ }
     }
-});
-$('shareX').addEventListener('click', () => track('card_shared', { method: 'x' }));
-$('shareLinkedIn').addEventListener('click', () => track('card_shared', { method: 'linkedin' }));
-
-$('copyLinkBtn').addEventListener('click', async () => {
-    const ok = await copyLink();
-    if (ok) track('card_shared', { method: 'copy_link' });
-    cardStatus(ok ? 'Link copied!' : 'Could not copy the link');
+    try {
+        await downloadCard(canvas, game.card);
+        track('card_shared', { method: 'download_fallback' });
+        cardStatus("Copying images isn't supported here, so we downloaded it instead");
+    } catch (e) {
+        cardStatus("Couldn't save the image in this browser");
+    }
 });
 
 $('playAgainBtn').addEventListener('click', () => { sound.unlock(); newRun(); });
@@ -966,69 +946,36 @@ const hash = (n) => { let h = (n * 2654435761) >>> 0; h ^= h >>> 15; return h >>
 
 // Pre-render the level's tiles and props once per attempt (and again if the quiet assist changes them).
 // Exposed tops use the theme's ground tiles, one-tile-thick ledges its platform tiles, everything else the fill.
+// Pits stay transparent so the parallax background shows through; the walls beside them get a side face.
 function renderLevelTiles(level) {
     const ts = art.meta[`tiles_${level.theme}`];
     const img = artImage(ts.image);
-    const off = document.createElement('canvas');
-    off.width = level.pixelWidth;
-    off.height = level.pixelHeight;
-    const c = off.getContext('2d');
-    c.imageSmoothingEnabled = false;
+    const [off, c] = makeCanvas(level.pixelWidth, level.pixelHeight);
+    const [tiles, tc] = makeCanvas(level.pixelWidth, level.pixelHeight);
     const solid = (cc, r) => cc >= 0 && cc < level.width && isSolid(level, cc, r);
     const tile = (name, x, y) => {
         const t = ts.tiles[name];
-        c.drawImage(img, t.x, t.y, t.w, t.h, x, y, T, T);
+        tc.drawImage(img, t.x, t.y, t.w, t.h, x, y, T, T);
     };
 
-    // Ground top per column: highest row from which the column is solid all the way down (pits have none)
-    const groundTop = new Array(level.width).fill(Infinity);
-    for (let cc = 0; cc < level.width; cc++) {
-        for (let r = level.height - 1; r >= 0 && solid(cc, r); r--) groundTop[cc] = r;
-    }
-
-    // 1. Pits read as pits: below the surrounding ground level, the background fades to a deep shade
-    const PIT = '20, 14, 12';
-    for (let cc = 0; cc < level.width; cc++) {
-        if (groundTop[cc] !== Infinity) continue;
-        let l = cc, r = cc;
-        while (l > 0 && groundTop[l] === Infinity) l--;
-        while (r < level.width - 1 && groundTop[r] === Infinity) r++;
-        const edge = Math.max(groundTop[l] === Infinity ? 0 : groundTop[l], groundTop[r] === Infinity ? 0 : groundTop[r]);
-        const y0 = edge * T - 2;
-        const steps = [0.3, 0.5, 0.66, 0.78, 0.87]; // pixel-stepped, 3px bands
-        steps.forEach((a, k) => { c.fillStyle = `rgba(${PIT}, ${a})`; c.fillRect(cc * T, y0 + k * 3, T, 3); });
-        c.fillStyle = `rgba(${PIT}, 0.94)`;
-        c.fillRect(cc * T, y0 + steps.length * 3, T, level.pixelHeight - y0);
-    }
-
-    // 2. Soft pixel-stepped shadows (~25%): under floating platforms, and from ground edges into pits
+    // 1. Soft pixel-stepped shadows (~25%) under floating platforms
     const SHADOW = [0.25, 0.16, 0.08]; // 2px steps
     for (let r = 0; r < level.height; r++) {
         for (let cc = 0; cc < level.width; cc++) {
-            if (!solid(cc, r)) continue;
-            if (!solid(cc, r - 1) && !solid(cc, r + 1)) {
-                SHADOW.forEach((a, k) => { c.fillStyle = `rgba(0, 0, 0, ${a})`; c.fillRect(cc * T + 1, (r + 1) * T + k * 2, T - 2, 2); });
-            }
-            for (const dir of [-1, 1]) {
-                const nc = cc + dir;
-                if (nc < 0 || nc >= level.width || groundTop[nc] !== Infinity || solid(nc, r)) continue;
-                SHADOW.forEach((a, k) => {
-                    c.fillStyle = `rgba(0, 0, 0, ${a})`;
-                    c.fillRect(dir > 0 ? (cc + 1) * T + k * 2 : cc * T - (k + 1) * 2, r * T, 2, T);
-                });
-            }
+            if (!solid(cc, r) || solid(cc, r - 1) || solid(cc, r + 1)) continue;
+            SHADOW.forEach((a, k) => { c.fillStyle = `rgba(0, 0, 0, ${a})`; c.fillRect(cc * T + 1, (r + 1) * T + k * 2, T - 2, 2); });
         }
     }
 
-    // 3. Tiles, with a 1px darker line along the top edge of every walkable surface
+    // 2. Tiles. Only open air ends a surface: ground running into a step-up stays a mid tile, so steps never look cut off.
     const edges = [];
     for (let r = 0; r < level.height; r++) {
         for (let cc = 0; cc < level.width; cc++) {
             if (!solid(cc, r)) continue;
             if (solid(cc, r - 1)) { tile(ts.roles.ground.fill, cc * T, r * T); continue; }
             const role = solid(cc, r + 1) ? ts.roles.ground : ts.roles.platform;
-            const leftOpen = !solid(cc - 1, r) || solid(cc - 1, r - 1);
-            const rightOpen = !solid(cc + 1, r) || solid(cc + 1, r - 1);
+            const leftOpen = !solid(cc - 1, r);
+            const rightOpen = !solid(cc + 1, r);
             const name = leftOpen && rightOpen ? (role.single || role.mid[0])
                 : leftOpen ? role.left
                     : rightOpen ? role.right
@@ -1037,17 +984,89 @@ function renderLevelTiles(level) {
             edges.push([name, cc * T, r * T]);
         }
     }
-    c.fillStyle = 'rgba(30, 16, 8, 0.45)';
+
+    // 3. Side faces: wherever a tile has open air beside it, the wall gets a pixel-stepped shade band
+    //    (darkest under the top lip), so drops and step-ups read as a wall going down. The wall is trimmed to the
+    //    edge tile's width, so it runs straight down from the corner instead of sticking out like a ledge.
+    const inset = { [-1]: edgeInset(ts, img, ts.roles.ground.left, -1), [1]: edgeInset(ts, img, ts.roles.ground.right, 1) };
+    const FACE = [0.4, 0.26, 0.14, 0.06]; // per pixel column, from the edge inward
+    for (let r = 0; r < level.height; r++) {
+        for (let cc = 0; cc < level.width; cc++) {
+            if (!solid(cc, r) || !solid(cc, r - 1)) continue;
+            if (!solid(cc - 1, r)) tc.clearRect(cc * T, r * T, inset[-1], T);
+            if (!solid(cc + 1, r)) tc.clearRect((cc + 1) * T - inset[1], r * T, inset[1], T);
+        }
+    }
+    tc.globalCompositeOperation = 'source-atop';
+    for (let r = 0; r < level.height; r++) {
+        for (let cc = 0; cc < level.width; cc++) {
+            if (!solid(cc, r)) continue;
+            const top = !solid(cc, r - 1);
+            const y0 = r * T + (top ? 6 : 0);
+            for (const dir of [-1, 1]) {
+                if (solid(cc + dir, r)) continue;
+                const pad = top ? 0 : inset[dir];
+                FACE.forEach((a, k) => {
+                    const x = dir < 0 ? cc * T + pad + k : (cc + 1) * T - 1 - pad - k;
+                    tc.fillStyle = `rgba(30, 16, 8, ${a})`;
+                    tc.fillRect(x, y0, 1, (r + 1) * T - y0);
+                    // lip shadow: the first tile below a top gets a second, shorter band
+                    if (!top && !solid(cc, r - 2) && solid(cc, r - 1)) {
+                        tc.fillStyle = `rgba(30, 16, 8, ${a * 0.8})`;
+                        tc.fillRect(x, r * T, 1, 6 - k * 2);
+                    }
+                });
+            }
+        }
+    }
+    tc.globalCompositeOperation = 'source-over';
+    // 1px darker line along the top edge of every walkable surface
+    tc.fillStyle = 'rgba(30, 16, 8, 0.45)';
     edges.forEach(([name, x, y]) => {
         const top = ts.tiles[name].top;
-        if (top) top.forEach((ty, i) => { if (ty < T) c.fillRect(x + i, y + ty, 1, 1); });
+        if (top) top.forEach((ty, i) => { if (ty < T) tc.fillRect(x + i, y + ty, 1, 1); });
     });
-    // Props: decoration only, bottom-centred on their tile
+
+    // 4. The walkable layer is interactive: a 1px darker outer outline around all of it
+    const [ring, rg] = makeCanvas(level.pixelWidth, level.pixelHeight);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) rg.drawImage(tiles, dx, dy);
+    rg.globalCompositeOperation = 'source-in';
+    rg.fillStyle = OUTLINE_DARK;
+    rg.fillRect(0, 0, level.pixelWidth, level.pixelHeight);
+    c.drawImage(ring, 0, 0);
+    c.drawImage(tiles, 0, 0);
+
+    // 5. Props: scenery only, bottom-centred on their tile. Tinted ~25% toward the background haze, lower contrast,
+    //    no outline or shadow, so they never read as obstacles.
+    const haze = `rgb(${hazeColor(art.meta[`bg_${level.theme}`])})`;
     level.decorations.forEach(d => {
         const p = ts.props[hash(d.x / T + level.index * 101) % ts.props.length];
-        c.drawImage(img, p.x, p.y, p.w, p.h, Math.round(d.x + T / 2 - p.w / 2), d.y + T - p.h, p.w, p.h);
+        const [pc, pg] = makeCanvas(p.w, p.h);
+        pg.filter = 'contrast(0.8) saturate(0.85)';
+        pg.drawImage(img, p.x, p.y, p.w, p.h, 0, 0, p.w, p.h);
+        pg.filter = 'none';
+        pg.globalCompositeOperation = 'source-atop';
+        pg.globalAlpha = 0.25;
+        pg.fillStyle = haze;
+        pg.fillRect(0, 0, p.w, p.h);
+        c.drawImage(pc, Math.round(d.x + T / 2 - p.w / 2), d.y + T - p.h);
     });
     return off;
+}
+
+// Transparent columns on the open side of an edge tile's bottom row (0 if the pixels can't be read, e.g. file://)
+function edgeInset(ts, img, name, dir) {
+    const t = ts.tiles[name];
+    try {
+        const [, g] = makeCanvas(T, T);
+        g.drawImage(img, t.x, t.y, t.w, t.h, 0, 0, T, T);
+        const row = g.getImageData(0, T - 1, T, 1).data;
+        for (let i = 0; i < T / 2; i++) {
+            const x = dir < 0 ? i : T - 1 - i;
+            if (row[x * 4 + 3] > 128) return i;
+        }
+    } catch (e) { /* tainted canvas */ }
+    return 0;
 }
 
 // Title scene: kept at its generated resolution, covering the screen at whole device pixels
@@ -1064,13 +1083,13 @@ function drawTitleScene() {
     ctx.restore();
 }
 
-// Atmospheric depth: far layers lean toward the sky colour (lower contrast); near layers are slightly desaturated.
-// Layer 1 is the sky itself (untinted). Every layer's top fades out so layers overlap without hard lines.
+// Atmospheric depth: every layer leans toward the sky colour (far ones more), so scenery stays soft and hazy
+// behind the crisp, outlined play layer. Every layer's top fades out so layers overlap without hard lines.
 const BG_DEPTH = [
-    { tint: 0, saturate: 1 },
-    { tint: 0.55, saturate: 0.9 },
-    { tint: 0.35, saturate: 0.95 },
-    { tint: 0.2, saturate: 0.85 }
+    { tint: 0.1, saturate: 0.95 },
+    { tint: 0.65, saturate: 0.85 },
+    { tint: 0.47, saturate: 0.85 },
+    { tint: 0.32, saturate: 0.8 }
 ];
 const BG_TOP_FADE = 16;
 const BG_BOTTOM_FADE = 24;
@@ -1119,15 +1138,17 @@ function prepareBackgrounds() {
     }
 }
 
-// Vertical placement (top y of each layer) so the scene fills the view height without gaps.
-// The near layer sits on the view bottom; each farther layer's bottom tucks under the solid part of the layer
-// in front of it, so the sky colour never shows between layers. For 'overlap' themes, when the scene is taller
-// than the view, farther layers slide down (more overlap) so most of the sky stays visible.
-function backgroundLayout(bg, H) {
+// Vertical placement (top y of each layer) for the layers drawn in levels (all but the near one, see drawBackground).
+// The front layer reaches the view bottom (so gaps show it) and its solid part starts above the ground line, with its
+// faded bottom hidden behind the ground; each farther layer's bottom tucks under the solid part of the layer in front,
+// so the sky colour never shows between layers. For 'overlap' themes, when the scene is taller than the view,
+// farther layers slide down (more overlap) so most of the sky stays visible.
+function backgroundLayout(bg, H, groundY) {
     const L = bg.layers;
-    const n = L.length;
+    const n = L.length - 1;
     const tops = new Array(n);
-    tops[n - 1] = H - L[n - 1].h;
+    const f = L[n - 1];
+    tops[n - 1] = Math.min(Math.max(H, groundY + BG_BOTTOM_FADE) - f.h, groundY - f.solidTop);
     for (let i = n - 2; i >= 0; i--) {
         const fadedBottom = i > 0 ? BG_BOTTOM_FADE / 2 : 0; // middle layers' soft bottom stays mostly covered
         const bottom = tops[i + 1] + Math.max(L[i + 1].solidTop, BG_TOP_FADE) + fadedBottom + 4;
@@ -1147,79 +1168,89 @@ function shade(hex, k) {
     return `rgb(${ch(n >> 16)}, ${ch((n >> 8) & 255)}, ${ch(n & 255)})`;
 }
 
-// Pits (columns with no ground down to the bottom) as [x0, x1, groundLineY] in world px; cached per level attempt.
-// The ground line is the top of the lower of the two banks.
-function levelPits(level) {
-    if (level.pits) return level.pits;
-    const top = (c) => { let t = level.height; for (let r = level.height - 1; r >= 0 && isSolid(level, c, r); r--) t = r; return t; };
-    level.pits = [];
-    let start = -1;
-    for (let c = 0; c <= level.width; c++) {
-        const pit = c < level.width && !isSolid(level, c, level.height - 1);
-        if (pit && start < 0) start = c;
-        if (!pit && start >= 0) {
-            const banks = [start - 1, c].filter(b => b >= 0 && b < level.width).map(top);
-            level.pits.push([start * T, c * T, Math.max(...banks) * T]);
-            start = -1;
-        }
+// The level's main walkable surface: the most common ground-top row (world px), cached per level attempt
+function groundLine(level) {
+    if (level.groundLineY != null) return level.groundLineY;
+    const counts = {};
+    for (let c = 0; c < level.width; c++) {
+        let t = -1;
+        for (let r = level.height - 1; r >= 0 && isSolid(level, c, r); r--) t = r;
+        if (t >= 0) counts[t] = (counts[t] || 0) + 1;
     }
-    return level.pits;
+    const row = +Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    return (level.groundLineY = (Number.isFinite(row) ? row : level.height - 4) * T);
 }
 
-// Parallax at 0.05 / 0.2 / 0.45 / 0.7; layers are drawn 1:1 with game pixels (same density as the tiles)
+// Parallax at 0.05 / 0.2 / 0.45; layers are drawn 1:1 with game pixels (same density as the tiles).
+// The near layer (bushes, chimneys, jars) is not drawn in levels: it rose into the play area and, sunk below the
+// walkable surface, it would only show inside gaps, where it read like a floor.
 function drawBackground() {
     if (!game.lv) { drawTitleScene(); return; }
     const W = view.width, H = view.height;
     const key = `bg_${game.lv.level.theme}`;
     const bg = art.meta[key];
-    const layers = bgLayers[key] || [];
-    const tops = backgroundLayout(bg, H);
+    const layers = (bgLayers[key] || []).slice(0, -1);
+    const camX = Math.round(game.camera.x);
+    const groundY = groundLine(game.lv.level) - Math.round(game.camera.y);
+    const tops = backgroundLayout(bg, H, groundY);
     // Above the sky layer (very tall views only): a soft zenith gradient into the sky colour, never a flat band
     const sky = ctx.createLinearGradient(0, 0, 0, Math.max(1, tops[0] + BG_TOP_FADE));
     sky.addColorStop(0, shade(bg.sky, 0.86));
     sky.addColorStop(1, bg.sky);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
-    const camX = Math.round(game.camera.x);
     layers.forEach((img, i) => {
         const w = img.width;
         const offset = Math.round(((camX * bg.factors[i]) % w + w) % w);
-        if (i === layers.length - 1) { drawNearLayer(img, offset, tops[i], camX); return; }
         for (let x = -offset; x < W; x += w) ctx.drawImage(img, x, tops[i]);
     });
+    // Depth haze from just above the ground line down: what shows through a gap reads as far away, never as a floor
+    const haze = hazeColor(bg);
+    const deep = ctx.createLinearGradient(0, groundY - T * 2, 0, groundY + T * 2);
+    deep.addColorStop(0, `rgba(${haze}, 0)`);
+    deep.addColorStop(0.5, `rgba(${haze}, 0.35)`);
+    deep.addColorStop(1, `rgba(${haze}, 0.6)`);
+    ctx.fillStyle = deep;
+    ctx.fillRect(0, groundY - T * 2, W, H - groundY + T * 2);
 }
 
-// Near layer: nothing from it (fences, gates...) may show inside a pit. Over each pit it fades out from
-// about two tiles above the ground line, so there are no hard cut-outs.
-const nearCanvas = document.createElement('canvas');
-function drawNearLayer(img, offset, top, camX) {
-    const W = view.width, H = view.height;
-    if (nearCanvas.width !== W || nearCanvas.height !== H) { nearCanvas.width = W; nearCanvas.height = H; }
-    const g = nearCanvas.getContext('2d');
-    g.clearRect(0, 0, W, H);
-    for (let x = -offset; x < W; x += img.width) g.drawImage(img, x, top);
-    const camY = Math.round(game.camera.y);
-    g.globalCompositeOperation = 'destination-out';
-    levelPits(game.lv.level).forEach(([x0, x1, edgeY]) => {
-        if (x1 <= camX || x0 >= camX + W) return;
-        const y = edgeY - camY;
-        const fade = g.createLinearGradient(0, y - T * 2, 0, y);
-        fade.addColorStop(0, 'rgba(0,0,0,0)');
-        fade.addColorStop(1, 'rgba(0,0,0,1)');
-        g.fillStyle = fade;
-        g.fillRect(x0 - camX, y - T * 2, x1 - x0, T * 2);
-        g.fillStyle = '#000';
-        g.fillRect(x0 - camX, y, x1 - x0, H - y);
-    });
-    g.globalCompositeOperation = 'source-over';
-    ctx.drawImage(nearCanvas, 0, 0);
+// The theme's haze as 'r, g, b': its sky colour, lifted toward warm light for dark (indoor) themes
+function hazeColor(bg) {
+    const n = parseInt(bg.sky.slice(1), 16);
+    let rgb = [n >> 16, (n >> 8) & 255, n & 255];
+    const lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+    if (lum < 0.45) rgb = rgb.map((v, i) => Math.round(v + ([232, 196, 160][i] - v) * 0.5));
+    return rgb.join(', ');
+}
+
+// Small soft pixel shadow on the ground under an interactive object (feet / bottom at y). It shrinks and fades
+// with height and is skipped when there is no ground within 3 tiles (bones arcing over a gap).
+function drawGroundShadow(cx, y, w) {
+    const level = game.lv.level;
+    const c = Math.floor(cx / T);
+    let ground = null;
+    for (let r = Math.max(0, Math.floor((y - 1) / T) + 1); r < level.height; r++) {
+        if (isSolid(level, c, r)) { ground = r * T; break; }
+    }
+    if (ground == null) return;
+    const k = 1 - (ground - y) / (T * 3);
+    if (k <= 0) return;
+    const sw = Math.max(4, Math.round(w * (0.6 + 0.4 * k)));
+    const x = Math.round(cx - sw / 2);
+    ctx.fillStyle = `rgba(20, 10, 4, ${0.28 * k})`;
+    ctx.fillRect(x, ground - 1, sw, 2);
+    ctx.fillStyle = `rgba(20, 10, 4, ${0.16 * k})`;
+    ctx.fillRect(x + 2, ground - 2, sw - 4, 1);
+    ctx.fillRect(x - 2, ground - 1, 2, 1);
+    ctx.fillRect(x + sw, ground - 1, 2, 1);
 }
 
 function drawWubby(p) {
     // Flicker while invincible
     if (p.invincible > 0 && game.screen === 'playing' && Math.floor(p.invincible / 0.08) % 2 === 0) return;
+    drawGroundShadow(p.x + p.width / 2, p.y + p.height, 18);
     // Wubby faces right in the sheet
-    drawAnim(ctx, 'wubby', p.anim, p.animT, p.x + p.width / 2, p.y + p.height, !p.facingRight);
+    drawAnim(ctx, 'wubby', p.anim, p.animT, p.x + p.width / 2, p.y + p.height, !p.facingRight, 1, OUTLINED);
 }
 
 // The thief faces right in the sheet; its flee loop faces left
@@ -1234,11 +1265,15 @@ function drawThief(th, mode) {
     const t = mode === 'intro' && game.intro.phase === 'grab' ? game.intro.t
         : mode === 'ending' ? (name === 'dizzy' ? th.caught - 0.3 : th.caught)
             : th.animTime;
-    drawAnim(ctx, 'thief', name, t, th.x + th.width / 2, th.y + th.height, flip, alpha);
+    if (alpha > 0.5) drawGroundShadow(th.x + th.width / 2, th.y + th.height, 14);
+    drawAnim(ctx, 'thief', name, t, th.x + th.width / 2, th.y + th.height, flip, alpha, OUTLINED);
 }
 
-// Hazards: the theme's two variants alternate per group of adjacent hazard tiles. Each pulses (2 frames, ~1.5s)
-// over a soft red glow; red is reserved for things that hurt.
+// Hazards: the theme's two variants alternate per group of adjacent hazard tiles. Each has a slow 2-frame pulse
+// (0.75s per frame); its red (#D9483B) outer outline and faint red glow step with it. That red is used for nothing else.
+const HAZARD_RED = '#D9483B';
+const SQUIRREL_LOOK = { rings: [OUTLINE_DARK], scale: 1.15 };
+const HAZARD_RINGS = [[OUTLINE_DARK, HAZARD_RED], [OUTLINE_DARK, 'rgba(217, 72, 59, 0.55)']];
 function hazardVariants(level) {
     if (level.hazardNames) return level.hazardNames;
     const names = art.meta.hazards.themes[level.theme];
@@ -1259,15 +1294,15 @@ function drawHazards(level, visible, time) {
     level.spikes.forEach((s, i) => {
         if (!visible(s.x)) return;
         const phase = (time + (s.x % 97) * 0.003) % period;
-        const pulse = 0.5 - 0.5 * Math.cos((phase / period) * Math.PI * 2);
+        const dim = phase >= period / 2 ? 1 : 0;
         const cx = s.x + T / 2, cy = s.y + T - 5;
-        const glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 22);
-        glow.addColorStop(0, `rgba(255, 40, 40, ${0.45 + pulse * 0.25})`);
-        glow.addColorStop(0.6, `rgba(255, 40, 40, ${0.16 + pulse * 0.1})`);
-        glow.addColorStop(1, 'rgba(255, 40, 40, 0)');
+        const glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 20);
+        glow.addColorStop(0, `rgba(217, 72, 59, ${dim ? 0.2 : 0.3})`);
+        glow.addColorStop(1, 'rgba(217, 72, 59, 0)');
         ctx.fillStyle = glow;
-        ctx.fillRect(cx - 23, cy - 23, 46, 30);
-        drawAnim(ctx, 'hazards', names[i], phase, cx, s.y + T);
+        ctx.fillRect(cx - 21, cy - 21, 42, 27);
+        drawGroundShadow(cx, s.y + T, 16);
+        drawAnim(ctx, 'hazards', names[i], phase, cx, s.y + T, false, 1, { rings: HAZARD_RINGS[dim] });
     });
 }
 
@@ -1303,34 +1338,43 @@ function drawWorld() {
     level.checkpoints.forEach((c, i) => {
         if (!visible(c.x)) return;
         const active = i <= lv.checkpoint;
-        drawAnim(ctx, 'items', active ? 'flagWave' : 'flagDown', active ? time - lv.checkpointTime : 0, c.x + T / 2, c.y + T * 2);
+        drawGroundShadow(c.x + T / 2, c.y + T * 2, 12);
+        drawAnim(ctx, 'items', active ? 'flagWave' : 'flagDown', active ? time - lv.checkpointTime : 0, c.x + T / 2, c.y + T * 2, false, 1, OUTLINED);
     });
 
-    if (level.exit) drawAnim(ctx, 'items', lv.exitEaten ? 'pedestalEmpty' : 'pedestalFull', 0, level.exit.x + T / 2, level.exit.y + T * 2);
+    if (level.exit) {
+        drawGroundShadow(level.exit.x + T / 2, level.exit.y + T * 2, 18);
+        drawAnim(ctx, 'items', lv.exitEaten ? 'pedestalEmpty' : 'pedestalFull', 0, level.exit.x + T / 2, level.exit.y + T * 2, false, 1, OUTLINED);
+    }
 
     level.bones.forEach((b, i) => {
         if (lv.boneState[i] !== BONE.AVAILABLE || !visible(b.x - 9)) return;
-        drawAnim(ctx, 'items', 'bone', time + b.x * 0.013, b.x, b.y);
+        drawGroundShadow(b.x, b.y + 6, 8);
+        drawAnim(ctx, 'items', 'bone', time + b.x * 0.013, b.x, b.y, false, 1, OUTLINED);
     });
-    lv.assistBones.forEach(b => { if (!b.taken && visible(b.x - 9)) drawAnim(ctx, 'items', 'bone', time, b.x, b.y, false, CONFIG.assist.trailAlpha); });
+    lv.assistBones.forEach(b => { if (!b.taken && visible(b.x - 9)) drawAnim(ctx, 'items', 'bone', time, b.x, b.y, false, CONFIG.assist.trailAlpha, OUTLINED); });
     const dropCfg = CONFIG.droppedBones;
     lv.dropped.forEach(d => {
         const blinking = d.age > dropCfg.lifetime - dropCfg.blinkTime;
         if (blinking && Math.floor(d.age / 0.1) % 2 === 0) return;
-        drawAnim(ctx, 'items', 'droppedBone', 0, d.x + d.width / 2, d.y + d.height / 2);
+        drawGroundShadow(d.x + d.width / 2, d.y + d.height, 8);
+        drawAnim(ctx, 'items', 'droppedBone', 0, d.x + d.width / 2, d.y + d.height / 2, false, 1, OUTLINED);
     });
 
     const found = game.run.goldens[level.index];
     level.goldens.forEach((g, i) => {
-        if (!found.has(i) && visible(g.x - 9)) drawAnim(ctx, 'items', 'golden', time + g.x * 0.01, g.x, g.y);
+        if (found.has(i) || !visible(g.x - 9)) return;
+        drawGroundShadow(g.x, g.y + 7, 10);
+        drawAnim(ctx, 'items', 'golden', time + g.x * 0.01, g.x, g.y, false, 1, OUTLINED);
     });
 
     lv.squirrels.forEach(s => {
         if (!visible(s.x)) return;
         const name = s.defeated ? (s.defeatTime < 0.25 ? 'squished' : 'poof') : s.state;
         const t = s.defeated ? (s.defeatTime < 0.25 ? s.defeatTime : s.defeatTime - 0.25) : s.animTime;
-        // gang sheet faces left
-        drawAnim(ctx, 'gang_effects', name, t, s.x + s.width / 2, s.y + s.height, s.dir > 0);
+        // gang sheet faces left; drawn ~15% larger than the art (the hitbox is unchanged)
+        if (!s.defeated) drawGroundShadow(s.x + s.width / 2, s.y + s.height, 16);
+        drawAnim(ctx, 'gang_effects', name, t, s.x + s.width / 2, s.y + s.height, s.dir > 0, 1, name === 'poof' ? null : SQUIRREL_LOOK);
     });
 
     // Story: intro thief + Wubby's treat jar, chase thief, dropped treat
@@ -1344,7 +1388,7 @@ function drawWorld() {
     if (game.ending) {
         const e = game.ending;
         drawThief(e.thief, 'ending');
-        if (e.treat) drawAnim(ctx, 'items', 'treat', time, e.treat.x + e.treat.width / 2, e.treat.y + e.treat.height / 2);
+        if (e.treat) drawAnim(ctx, 'items', 'treat', time, e.treat.x + e.treat.width / 2, e.treat.y + e.treat.height / 2, false, 1, OUTLINED);
     }
 
     drawWubby(lv.player);
