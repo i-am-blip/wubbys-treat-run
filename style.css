@@ -346,9 +346,11 @@ a:focus-visible {
 }
 
 /* ---------- Title ---------- */
-/* soft dark backdrop behind the centre column, for contrast over the busy title scene */
+/* The scene recedes: a soft light scrim behind the centre content and a gentle edge vignette (no blur) */
 .title-screen {
-    background: radial-gradient(ellipse 34% 42% at 50% 50%, rgba(30, 16, 6, 0.42), rgba(30, 16, 6, 0.16) 65%, rgba(30, 16, 6, 0));
+    background:
+        radial-gradient(ellipse 34% 40% at 50% 50%, rgba(255, 246, 228, 0.38), rgba(255, 246, 228, 0.22) 55%, rgba(255, 246, 228, 0) 100%),
+        radial-gradient(ellipse 72% 78% at 50% 48%, rgba(24, 12, 4, 0) 45%, rgba(24, 12, 4, 0.5) 100%);
 }
 
 .title-stack {
@@ -356,16 +358,16 @@ a:focus-visible {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: calc(6 * var(--px));
+    gap: calc(5 * var(--px));
     text-align: center;
 }
 
-
-
+/* Hero: bounces in once, then an almost still bob (1-2px, slow) */
 .logo {
     width: calc(212 * var(--px));
     height: calc(89 * var(--px));
-    animation: logoIn 0.9s cubic-bezier(0.2, 1.6, 0.4, 1) both, logoBob 3s ease-in-out 0.9s infinite;
+    margin-bottom: calc(2 * var(--px));
+    animation: logoIn 0.9s cubic-bezier(0.2, 1.6, 0.4, 1) both, logoBob 4.5s ease-in-out 0.9s infinite;
 }
 
 @keyframes logoIn {
@@ -376,40 +378,109 @@ a:focus-visible {
 
 @keyframes logoBob {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(calc(-2 * var(--px))); }
+    50% { transform: translateY(calc(-1 * var(--px))); }
 }
 
-.story {
-    max-width: 34em;
-    font-size: calc(8 * var(--px));
-    font-weight: 600;
-    color: #fff;
-    text-shadow: 0 calc(1 * var(--px)) 0 rgba(40, 20, 0, 0.8), 0 0 calc(4 * var(--px)) rgba(40, 20, 0, 0.5);
+/* The only primary action: a little larger, one gentle pulse after the logo lands, then still */
+.play-btn {
+    min-width: calc(108 * var(--px));
+    font-size: calc(13 * var(--px));
+    animation: playPulse 640ms var(--ease-in-out) 1.05s 1;
+}
+
+@keyframes playPulse {
+    0%, 100% { transform: scale(1); }
+    45% { transform: scale(1.06); }
 }
 
 .title-best {
+    font-size: calc(6 * var(--px));
+    font-weight: 500;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Secondary text, legible over the light scrim */
+.story {
+    max-width: 44ch;
+    margin-top: calc(2 * var(--px));
+    font-size: calc(8 * var(--px));
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink);
+    text-wrap: balance;
+    text-shadow: 0 0 calc(3 * var(--px)) rgba(255, 246, 228, 0.9), 0 1px 0 rgba(255, 246, 228, 0.7);
+}
+
+/* Social proof, quiet, near the bottom */
+.title-love {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    font-size: calc(7 * var(--px));
+    font-weight: 500;
+    color: rgba(255, 243, 220, 0.9);
+    text-align: center;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 6px rgba(0, 0, 0, 0.45);
+    animation: fadeIn 400ms ease both;
+}
+
+/* Level 1 controls hint: a quiet pill above the ground that fades out once learned */
+.controls-hint {
+    --px: var(--px-hud);
+    position: fixed;
+    left: 50%;
+    top: 34%;
+    z-index: 120;
     display: flex;
     align-items: center;
-    gap: calc(3 * var(--px));
-    font-size: calc(8 * var(--px));
-    font-weight: 600;
-    --px: var(--px-hud);
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(34, 22, 14, 0.72);
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--cream);
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transition: opacity 500ms ease, transform 500ms var(--ease-out);
+    pointer-events: none;
 }
 
-.title-best .ui-icon-clock {
-    --px: var(--px-mark);
+.controls-hint.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition-delay: 300ms;
 }
 
-.controls {
-    --px: var(--px-hud);
+.controls-hint b {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.hint-dot {
+    opacity: 0.5;
+}
+
+.touch-only {
+    display: none;
+}
+
+@media (pointer: coarse) {
+    .touch-only { display: inline; }
+    .kbd-only { display: none; }
+    .controls-hint { font-size: 13px; }
+}
+
+.pause-keys {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: calc(4 * var(--px)) calc(10 * var(--px));
-    font-size: calc(9 * var(--px));
+    gap: calc(8 * var(--px));
+    margin-top: calc(1 * var(--px));
+    font-size: calc(7 * var(--px));
     font-weight: 600;
-    color: #fff;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+    color: var(--ink-soft);
 }
 
 .keys {
@@ -783,8 +854,13 @@ a:focus-visible {
         animation: fadeIn 200ms ease both;
     }
 
-    .journey-thief.pulsing {
+    .journey-thief.pulsing,
+    .play-btn {
         animation: none;
+    }
+
+    .controls-hint {
+        transform: translate(-50%, 0);
     }
 
     .btn:active,

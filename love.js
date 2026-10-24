@@ -24,6 +24,24 @@ async function apiCall(path, options = {}) {
     }
 }
 
+// Social proof: "♥ N players loved this", or null when there's no count yet
+function lovedByText(count) {
+    if (!Number.isFinite(count) || count <= 0) return null;
+    return `♥ ${count} ${count === 1 ? 'player' : 'players'} loved this`;
+}
+
+async function fetchLoveCount() {
+    const res = await apiCall(CONFIG.api.love);
+    return res && res.count != null ? Number(res.count) : NaN;
+}
+
+// Title screen: quiet count near the bottom, hidden when there is none or the request fails
+async function refreshTitleLove() {
+    const text = lovedByText(await fetchLoveCount());
+    $('titleLove').textContent = text || '';
+    $('titleLove').classList.toggle('hidden', !text);
+}
+
 function loveThanksText(count) {
     if (!Number.isFinite(count) || count <= 1) return 'Thanks for playing!';
     const others = count - 1;
@@ -105,9 +123,15 @@ async function showLoveSection() {
         $('loveLabel').textContent = 'Send Wubby some love';
         $('loveThanks').textContent = '';
         $('creatorBlock').classList.add('hidden');
+        // Before the tap, the same quiet count as on the title screen
+        const text = lovedByText(await fetchLoveCount());
+        if (text && !love.sent()) {
+            $('loveThanks').textContent = text;
+            $('loveThanks').classList.add('shown');
+        }
         return;
     }
     showLoveSent(NaN);
-    const res = await apiCall(CONFIG.api.love);
-    if (res && Number.isFinite(Number(res.count)) && res.count !== null) $('loveThanks').textContent = loveThanksText(Number(res.count));
+    const count = await fetchLoveCount();
+    if (Number.isFinite(count)) $('loveThanks').textContent = loveThanksText(count);
 }

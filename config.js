@@ -96,8 +96,8 @@ const CONFIG = {
     creator: {
         name: 'Dev Mehta',
         tagline: 'Product designer who ships. Open to roles and freelance work.',
-        linkedinUrl: '',   // TODO: your LinkedIn profile URL
-        portfolioUrl: ''   // TODO: your portfolio URL
+        linkedinUrl: 'https://www.linkedin.com/in/dev-mehtaa',
+        portfolioUrl: 'https://www.devmehtaa.in/'
     },
 
     // "Send Wubby some love" and CTA counters: serverless routes in netlify/functions (see SETUP.md)

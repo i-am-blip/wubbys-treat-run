@@ -21,6 +21,9 @@ polaroid needs the local server (browsers block reading back canvases drawn from
 - **ESC / P**: pause
 - **M**: sound on/off
 - **Touch devices**: on-screen ◀ ▶ ▲ buttons
+- **Enter / Space** on the title screen: play
+
+Level 1 shows a short controls hint that fades once you've moved and jumped; Esc and M are listed in the pause menu.
 
 ## Gameplay
 
@@ -51,7 +54,7 @@ polaroid needs the local server (browsers block reading back canvases drawn from
 | `rewardCard.js` | The reward card image: `renderRewardCard(data, art)` → canvas |
 | `share.js` | Name validation, treat number, polaroid PNG (copy / download fallback) |
 | `love.js` | End screen: "Send Wubby some love" and the creator credit (`CONFIG.creator`) |
-| `netlify/` | API routes `/api/love` and `/api/cta-click` (Upstash Redis, Discord webhook). See [SETUP.md](SETUP.md) |
+| `netlify/` | API routes `/api/love` and `/api/cta-click` (Upstash Redis). See [SETUP.md](SETUP.md) |
 | `analytics.js` | `track()` stub. Wire a provider in `analytics.send()` |
 | `tools/check-levels.js` | Verifies every level with the jump arc from config and real physics |
 | `art.js` | Loads the built art and draws atlas frames/animations |

@@ -5,7 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wubby's Treat Run</title>
-    <meta name="description" content="A squirrel stole Wubby's treat! Chase it through three levels, get the treat back and share your reward card.">
+    <meta name="description" content="Wubby's Treat Run: a short pixel platformer. A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
+    <meta name="theme-color" content="#71d2e0">
+    <!-- Link previews. Scrapers want absolute URLs: prefix the image path with your site URL once it's live. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Wubby's Treat Run">
+    <meta property="og:title" content="Wubby's Treat Run">
+    <meta property="og:description" content="A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
+    <meta property="og:image" content="public/assets/game/og_image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Wubby's Treat Run logo over a pixel-art garden with Wubby chasing the squirrel thief">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Wubby's Treat Run">
+    <meta name="twitter:description" content="A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
+    <meta name="twitter:image" content="public/assets/game/og_image.png">
     <link rel="stylesheet" href="public/assets/game/ui.css">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -41,24 +55,24 @@
         </div>
     </div>
 
+    <!-- Controls hint at the start of level 1; fades once Wubby has moved and jumped -->
+    <div id="controlsHint" class="controls-hint" aria-hidden="true">
+        <span class="hint-keys"><b>◀ ▶</b> move</span><span class="hint-dot">·</span><span class="hint-keys"><b class="kbd-only">SPACE</b><b class="touch-only">JUMP</b> jump</span><span class="hint-dot">·</span><span>hold for higher</span>
+    </div>
+
     <!-- Level start banner (fades in and out; gameplay keeps running) -->
     <div id="levelBanner" class="level-banner" aria-live="polite"><div class="ui-banner banner-ribbon"><span id="levelBannerText"></span></div></div>
 
-    <!-- Title -->
+    <!-- Title: logo, then Play, then the story line; everything else stays quiet -->
     <div id="titleScreen" class="screen title-screen hidden">
         <div class="title-stack">
             <img class="logo" src="public/assets/game/logo.png" alt="Wubby's Treat Run">
+            <button id="playBtn" class="ui-btn-primary btn btn-primary play-btn">PLAY</button>
+            <p id="titleBest" class="title-best hidden"></p>
             <p class="story">A sneaky squirrel stole Wubby's treat! Chase it through 3 levels and get it back.</p>
-            <button id="playBtn" class="ui-btn-primary btn btn-primary">PLAY</button>
-            <div id="titleBest" class="ui-panelS title-best hidden"><span class="ui-icon-clock"></span><span id="titleBestText"></span></div>
-            <div class="controls">
-                <span class="keys"><span class="ui-key key">◀</span><span class="ui-key key">▶</span> move</span>
-                <span class="keys"><span class="ui-key-space key key-space">SPACE</span> jump (hold for higher)</span>
-                <span class="keys"><span class="ui-key key">Esc</span> pause</span>
-                <span class="keys"><span class="ui-key key">M</span> sound</span>
-            </div>
             <p id="levelError" class="error hidden"></p>
         </div>
+        <p id="titleLove" class="title-love hidden" aria-live="polite"></p>
     </div>
 
     <!-- Pause -->
@@ -68,6 +82,10 @@
             <button id="resumeBtn" class="ui-btn-primary btn btn-primary">RESUME</button>
             <button id="restartLevelBtn" class="ui-btn-wide btn">Restart level</button>
             <button id="quitBtn" class="ui-btn-wide btn">Quit to title</button>
+            <div class="pause-keys">
+                <span class="keys"><span class="ui-key key">Esc</span> resume</span>
+                <span class="keys"><span class="ui-key key">M</span> sound</span>
+            </div>
         </div>
     </div>
 

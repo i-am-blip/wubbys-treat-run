@@ -1035,6 +1035,13 @@ def build_title_logo():
     lsmall, lalpha = sample(lrgb, lfg, ls, grid_phase(lrgb, lfg, ls, 1), grid_phase(lrgb, lfg, ls, 0))
     logo = trim(to_rgba(lsmall, lalpha))
     logo.save(OUT / 'logo.png')
+    # Social preview (Open Graph / Twitter, 1200x630): the title scene covering the frame, logo at 3x on top
+    k = max(1200 / title.width, 630 / title.height)
+    scene = title.resize((round(title.width * k), round(title.height * k)), Image.LANCZOS)
+    og = scene.crop(((scene.width - 1200) // 2, (scene.height - 630) // 2, (scene.width - 1200) // 2 + 1200, (scene.height - 630) // 2 + 630))
+    big = logo.resize((logo.width * 3, logo.height * 3), Image.NEAREST)
+    og.alpha_composite(big, ((1200 - big.width) // 2, (630 - big.height) // 2 - 40))
+    og.convert('RGB').save(OUT / 'og_image.png', optimize=True)
     # left: title scene alone; right: logo alone on a dark background
     lg = logo.resize((logo.width * 2, logo.height * 2), Image.NEAREST)
     pv = Image.new('RGBA', (title.width // 2 + lg.width + 30, max(title.height // 2, lg.height)), (30, 32, 44, 255))

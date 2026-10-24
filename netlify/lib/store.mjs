@@ -1,4 +1,4 @@
-// Shared helpers for the API routes: Upstash Redis, per-IP rate limiting, Discord notifications.
+// Shared helpers for the API routes: Upstash Redis and per-IP rate limiting.
 // Without UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN every route still answers, with { count: null },
 // and makes no network calls.
 import { createHash } from 'node:crypto';
@@ -23,19 +23,4 @@ export async function underDailyLimit(req, context, name, limit) {
     const n = await redis.incr(key);
     if (n === 1) await redis.expire(key, 60 * 60 * 48);
     return n <= limit;
-}
-
-// Posts a Discord-format message to LOVE_WEBHOOK_URL, if set. Never throws and never delays the response:
-// it runs after the response when the platform supports waitUntil, and gives up after 3s otherwise.
-export function notify(context, content) {
-    const hook = process.env.LOVE_WEBHOOK_URL;
-    if (!hook) return;
-    const send = fetch(hook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-        signal: AbortSignal.timeout(3000)
-    }).catch(() => {});
-    if (context && typeof context.waitUntil === 'function') context.waitUntil(send);
-    else return send;
 }

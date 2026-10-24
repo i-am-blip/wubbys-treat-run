@@ -1,4 +1,4 @@
-# 🚀 Deployment Guide
+# 🚀 Deploying Wubby's Treat Run
 
 Since `node`, `npm`, and `git` are not detected in your terminal, the easiest way to deploy your game is using **Drag & Drop** services.
 
@@ -8,8 +8,8 @@ Since `node`, `npm`, and `git` are not detected in your terminal, the easiest wa
 ## Option 1: Netlify Drop (Recommended)
 1. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
 2. Locate your project folder:
-   `d:\My Work\AI Exploration\a GAME`
-3. Drag the entire **"a GAME"** folder onto the Netlify drop zone.
+   `D:\My Work\AI Exploration\wubbys-treat-run`
+3. Drag the entire **"wubbys-treat-run"** folder onto the Netlify drop zone.
 4. Netlify will deploy it instantly and give you a public URL (e.g., `fluffy-unicorn-123456.netlify.app`).
 
 ## Option 2: Surge.sh (Requires Node/NPM)

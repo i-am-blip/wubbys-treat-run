@@ -126,6 +126,7 @@ const game = {
     timer: 0,       // countdown for transitions
     streak: { step: 0, last: -Infinity },
     journey: 0,     // eased overall progress shown in the HUD bar (0..1)
+    controls: { moved: false, jumped: false, learned: false }, // level 1 controls hint
     intro: null,
     ending: null,
     card: null
@@ -216,6 +217,7 @@ function setScreen(screen) {
     $('hud').classList.toggle('hidden', !inLevel);
     document.body.classList.toggle('in-level', inLevel && screen !== 'paused');
     if (!inLevel) $('levelBanner').classList.remove('show');
+    if (screen !== 'playing') $('controlsHint').classList.remove('show');
     if (screen === 'title') renderTitleStats();
 }
 
@@ -224,6 +226,7 @@ function pressJump() {
     sound.unlock();
     if (game.screen === 'intro') { finishIntro(); return; }
     if (!input.jumpHeld) input.jumpPressed = true;
+    if (game.screen === 'playing') game.controls.jumped = true;
     input.jumpHeld = true;
 }
 
@@ -383,12 +386,24 @@ function update(dt) {
     if (game.lv) updateCamera(dt);
 }
 
+// Level 1 shows a short controls hint until Wubby has moved and jumped (once per session)
+function updateControlsHint() {
+    const c = game.controls;
+    if (c.learned) return;
+    const { level, player } = game.lv;
+    if (Math.abs(player.x - level.start.x) > T) c.moved = true;
+    const show = level.index === 0 && !(c.moved && c.jumped);
+    if (!show && level.index === 0) c.learned = true;
+    $('controlsHint').classList.toggle('show', show);
+}
+
 function updatePlaying(dt) {
     const { lv, run } = game;
     const level = lv.level;
     const p = lv.player;
     run.runTime += dt * 1000;
     lv.time += dt;
+    updateControlsHint();
 
     const prevBottom = p.y + p.height;
     const events = stepPlayer(level, p, input, dt);
@@ -1513,8 +1528,10 @@ buildJourney();
 
 function renderTitleStats() {
     const s = save.data;
+    // Returning players only: a quiet line under Play
     $('titleBest').classList.toggle('hidden', s.bestTime == null);
-    $('titleBestText').textContent = s.bestTime == null ? '' : `Best ${formatTime(s.bestTime)} · ${s.maxGoldens}/${TOTAL_GOLDENS} golden bones`;
+    $('titleBest').textContent = s.bestTime == null ? '' : `Best ${formatTime(s.bestTime)} · ${s.maxGoldens}/${TOTAL_GOLDENS} golden bones`;
+    refreshTitleLove();
     if (levelError) {
         $('levelError').textContent = 'Level error: ' + levelError;
         $('levelError').classList.remove('hidden');

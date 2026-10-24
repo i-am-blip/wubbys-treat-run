@@ -3,9 +3,6 @@
     name: "Backyard Garden",
     theme: "garden",
     hints: [
-        { col: 1, row: 4, text: "ARROWS / A D TO MOVE" },
-        { col: 18, row: 4, text: "SPACE / UP / W TO JUMP" },
-        { col: 37, row: 3, text: "HOLD JUMP TO JUMP HIGHER" },
         { col: 59, row: 4, text: "RUN AND JUMP OVER GAPS" },
         { col: 208, row: 9, text: "ouch, thorns!", fade: true }
     ],
