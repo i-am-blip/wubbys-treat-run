@@ -1400,3 +1400,156 @@ body.touch .kbd-only {
         margin-bottom: 0;
     }
 }
+
+/* =====================================================================================================
+   End screen on wide screens (desktop / tablet landscape): polaroid + content as one centred composition
+   (max 920px), the polaroid capped at min(60dvh, 520px), a 360px left-aligned content column on an
+   8 / 12 / 16 / 24 / 32px spacing scale. Portrait / mobile sizing is unchanged.
+   ===================================================================================================== */
+@media (min-aspect-ratio: 11/10) and (min-height: 501px) {
+    .end-layout {
+        max-width: 920px;
+        margin: 0 auto;
+        gap: clamp(56px, 6vw, 72px);
+        align-items: center;
+    }
+
+    .end-photo {
+        flex: 0 0 auto;
+        width: calc(min(60dvh, 520px) * 0.8 + 32px);
+        max-width: none;
+        height: calc(min(60dvh, 520px) + 32px);
+    }
+
+    .polaroid-frame {
+        height: min(60dvh, 520px);
+    }
+
+    .end-content {
+        width: 360px;
+        flex: none;
+        align-items: stretch;
+        gap: 0;
+        text-align: left;
+    }
+
+    .name-row {
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .name-row .label-text,
+    .love-text {
+        font-size: 14px;
+    }
+
+    .name-field {
+        width: 100%;
+    }
+
+    .card-actions {
+        align-items: stretch;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .card-actions .btn-primary {
+        width: 100%;
+    }
+
+    .text-action {
+        align-self: flex-start;
+        padding: 0;
+    }
+
+    .card-status {
+        margin-top: 8px;
+    }
+
+    .love {
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 32px;
+    }
+
+    .creator {
+        margin-top: 32px;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .creator-links {
+        justify-content: flex-start;
+    }
+
+    .end-footer {
+        margin-top: 24px;
+        padding: 0;
+    }
+}
+
+/* Creator card: comfortable padding inside the panel border, heading 15-16px, tagline 13px (two balanced lines),
+   LinkedIn (primary, 44px+) and the portfolio link on one row, 16px apart */
+.creator {
+    gap: 0;
+    padding: 20px 24px;
+}
+
+.creator-name {
+    font-size: clamp(15px, 0.4vw + 13px, 16px);
+    line-height: 1.25;
+}
+
+.creator-tagline {
+    margin-top: 6px;
+    max-width: 34ch;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-wrap: balance;
+}
+
+.creator-links {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.creator-cta {
+    white-space: nowrap;
+}
+
+.creator-link {
+    padding: 0;
+    white-space: nowrap;
+}
+
+.creator-cta {
+    padding: 0 14px;
+    font-size: 15px;
+}
+
+.creator-links {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+/* One row in the card: the LinkedIn button at exactly 44px tall (21 art px x 2.1), the link at 14px */
+.creator-cta {
+    --px: 2.1px;
+    padding: 0 12px;
+}
+
+.creator-link {
+    font-size: 14px;
+}
+
+@media (min-aspect-ratio: 11/10) and (min-height: 501px) {
+    .end-content {
+        width: 380px;
+    }
+
+    .creator {
+        padding: 20px 22px;
+    }
+}
