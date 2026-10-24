@@ -57,45 +57,7 @@ window.addEventListener('resize', () => {
     if (game.lv) snapCamera();
 });
 
-// ---------- Sound (tiny WebAudio synth, created on first user input) ----------
-const sound = {
-    ctx: null,
-    unlock() {
-        if (!this.ctx) {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (AC) this.ctx = new AC();
-        }
-        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-    },
-    tone(freq, endFreq, duration, type = 'square', volume = 0.08, delay = 0) {
-        if (save.data.muted || !this.ctx) return;
-        const t = this.ctx.currentTime + delay;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, t);
-        osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
-        gain.gain.setValueAtTime(volume, t);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-        osc.connect(gain).connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + duration);
-    },
-    jump() { this.tone(300, 600, 0.12); },
-    bone(step) {
-        const f = CONFIG.bones.streakBaseFreq * Math.pow(2, PENTATONIC[step] / 12);
-        this.tone(f, f * 1.02, 0.09, 'square', 0.05);
-    },
-    golden() { [0, 0.08, 0.16].forEach((d, i) => this.tone(700 + i * 250, 1000 + i * 300, 0.12, 'square', 0.06, d)); },
-    heart() { [0, 0.1].forEach((d, i) => this.tone(500 + i * 300, 800 + i * 300, 0.15, 'triangle', 0.12, d)); },
-    stomp() { this.tone(400, 80, 0.15, 'triangle', 0.15); },
-    hurt() { this.tone(300, 90, 0.3, 'sawtooth', 0.08); },
-    checkpoint() { [0, 0.1, 0.2].forEach((d, i) => this.tone(400 + i * 200, 420 + i * 200, 0.1, 'square', 0.06, d)); },
-    thief() { [0, 0.09, 0.18].forEach((d, i) => this.tone(900 - i * 150, 700 - i * 150, 0.08, 'square', 0.06, d)); },
-    munch() { [0, 0.12, 0.24].forEach(d => this.tone(180, 60, 0.07, 'square', 0.1, d)); },
-    bark() { this.tone(520, 260, 0.12, 'sawtooth', 0.12); this.tone(560, 280, 0.14, 'sawtooth', 0.12, 0.18); },
-    fail() { this.tone(400, 60, 0.7, 'sawtooth', 0.08); }
-};
+// Sound and music live in audio.js (the `sound` object)
 
 // ---------- Levels ----------
 let levels = [];
@@ -135,6 +97,7 @@ const game = {
 const input = { left: false, right: false, jumpHeld: false, jumpPressed: false };
 
 function newRun() {
+    sound.musicOn();
     game.run = {
         levelIndex: 0,
         runTime: 0,
@@ -210,6 +173,8 @@ function boneProgress() {
 
 function setScreen(screen) {
     game.screen = screen;
+    sound.setPaused(screen === 'paused');
+    if (screen === 'title') sound.musicOff();
     const inLevel = ['intro', 'playing', 'paused', 'respawning', 'failed', 'complete', 'ending'].includes(screen);
     $('titleScreen').classList.toggle('hidden', screen !== 'title');
     $('pauseScreen').classList.toggle('hidden', screen !== 'paused');
@@ -270,12 +235,16 @@ function handleKey(e, isDown) {
 function toggleMute() {
     save.data.muted = !save.data.muted;
     save.write();
+    sound.applyMute();
 }
 
 document.addEventListener('keydown', e => handleKey(e, true));
 document.addEventListener('keyup', e => handleKey(e, false));
 window.addEventListener('blur', () => { input.left = input.right = false; releaseJump(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && game.screen === 'playing') togglePause(); });
+document.addEventListener('visibilitychange', () => {
+    sound.setHidden(document.hidden);
+    if (document.hidden && game.screen === 'playing') togglePause();
+});
 window.addEventListener('pagehide', () => {
     if (game.run && !['card', 'title'].includes(game.screen)) track('quit', { level: game.run.levelIndex + 1, reason: 'pagehide' });
 });
@@ -288,6 +257,11 @@ document.querySelectorAll('[data-control]').forEach(btn => {
     btn.addEventListener('pointerup', up);
     btn.addEventListener('pointercancel', up);
     btn.addEventListener('pointerleave', up);
+});
+// Every on-screen button clicks (not the touch controls, which are held like keys)
+document.addEventListener('click', (e) => {
+    const el = e.target.closest && e.target.closest('button, a[data-cta]');
+    if (el && !el.dataset.control && !el.disabled && el.id !== 'loveBtn') sound.click();
 });
 $('pauseBtn').addEventListener('click', togglePause);
 $('muteBtn').addEventListener('click', toggleMute);
@@ -439,7 +413,7 @@ function updatePlaying(dt) {
     }
 
     if (p.y > level.pixelHeight + CONFIG.fallMargin) {
-        if (lv.chase) chaseRespawn(); else hurt('gap', true);
+        if (lv.chase) { sound.fall(); chaseRespawn(); } else hurt('gap', true);
         return;
     }
     if (p.invincible <= 0 && level.spikes.some(s => overlaps(p, spikeHitbox(s)))) { hurt('spike', true); return; }
@@ -594,7 +568,7 @@ function hurt(cause, respawnAfter, knockDir = -1) {
         setScreen('failed');
         return;
     }
-    sound.hurt();
+    if (cause === 'spike') sound.ouch(); else sound.hurt();
     if (respawnAfter) {
         // Bones scatter at the respawn point so they can be recovered
         lv.pendingDrop = true;
@@ -715,6 +689,7 @@ function completeLevel() {
     lv.exitEaten = true;
     lv.player.vx = 0;
     sound.munch();
+    sound.levelJingle();
     crumbs(lv.level.exit.x + T / 2, lv.level.exit.y + 6, 14);
     const full = run.fullBelly[lv.level.index];
     const total = lv.level.bones.length;
@@ -763,6 +738,7 @@ function startEnding() {
     thief.fade = 0;
     sound.stomp();
     sound.thief();
+    sound.winFanfare();
     spawnEffect('gang_effects', 'hitStars', thief.x + thief.width / 2, thief.y - 4, false, { life: 0.9 });
     const s = CONFIG.droppedBones.size;
     game.ending = {
@@ -1556,6 +1532,8 @@ function onAssetsLoaded() {
     setScreen('title');
     document.body.classList.add('ready');
     requestAnimationFrame(gameLoop);
+    // The music loads once the title is interactive, so it never delays first paint
+    (window.requestIdleCallback || ((f) => setTimeout(f, 200)))(() => { sound.preloadMusic(); loadMusicCredit(); });
 }
 
 loadArt(onAssetsLoaded);

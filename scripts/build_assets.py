@@ -1063,6 +1063,86 @@ def build_cards():
     return ['card photos 900x900 (LANCZOS, JPEG q90)']
 
 
+# ================================================================= music
+# assets/raw/audio/background-music.* -> public/assets/game/audio/background-music.{ogg,mp3} + music.json.
+# The track is 140 BPM with 8-beat phrases; the loop is exactly MUSIC_PHRASES phrases from the music's onset,
+# so the final hit lands just before the downbeat where the track restarts. Both ends sit on zero-crossings.
+MUSIC_BPM = 140
+MUSIC_PHRASES = 24
+MUSIC_SR = 44100
+MUSIC_KBPS = 112
+
+
+def ffmpeg_decode(path, sr=MUSIC_SR):
+    import subprocess
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(path), '-f', 'f32le', '-ac', '2', '-ar', str(sr), '-'],
+                         check=True, capture_output=True).stdout
+    return np.frombuffer(raw, dtype=np.float32).reshape(-1, 2).copy()
+
+
+def nearest_zero_crossing(x, i, search):
+    """Index near i where the mono mix crosses zero upward and both channels are closest to zero."""
+    mono = x[:, 0] + x[:, 1]
+    lo, hi = max(1, i - search), min(len(x) - 1, i + search)
+    idx = np.nonzero((mono[lo - 1:hi - 1] < 0) & (mono[lo:hi] >= 0))[0] + lo
+    if len(idx) == 0:
+        return i
+    return int(idx[np.argmin(np.abs(x[idx]).sum(1) + np.abs(idx - i) * 1e-6)])
+
+
+def seam_click(loop, sr=MUSIC_SR):
+    """How much the loop seam (tail -> head) stands out: first-difference energy in a 3ms window at the seam,
+    relative to the 99th percentile of the same measure across the whole loop (< ~1 means no click)."""
+    joined = np.concatenate([loop[-sr // 10:], loop[:sr // 10]])
+    def hf(sig):
+        d = np.diff(sig, axis=0)
+        w = int(0.003 * sr)
+        e = np.sqrt(np.convolve((d ** 2).sum(1), np.ones(w) / w, mode='valid'))
+        return e
+    seam = hf(joined)[sr // 10 - int(0.003 * sr):sr // 10].max()
+    ref = np.percentile(hf(loop), 99)
+    return float(seam / ref)
+
+
+def build_music():
+    import subprocess
+    src = next((RAW / 'audio').glob('background-music.*'))
+    x = ffmpeg_decode(src)
+    loud = np.nonzero(np.abs(x).max(1) > 10 ** (-50 / 20))[0]
+    onset = int(loud[0])
+    # start: last near-silent sample before the onset (trims the leading silence / encoder delay)
+    start = max(0, onset - 1)
+    length = round(MUSIC_PHRASES * 8 * 60 / MUSIC_BPM * MUSIC_SR)
+    end = nearest_zero_crossing(x, start + length, int(0.002 * MUSIC_SR))
+    loop = x[start:end].copy()
+    # 4ms safety fade at the seam, so even a not-quite-zero sample can't click
+    f = int(0.004 * MUSIC_SR)
+    loop[:f] *= np.linspace(0, 1, f)[:, None]
+    loop[-f:] *= np.linspace(1, 0, f)[:, None]
+    out = OUT / 'audio'
+    out.mkdir(exist_ok=True)
+    wav = out / '_loop.f32'
+    wav.write_bytes(loop.astype(np.float32).tobytes())
+    pcm = ['-f', 'f32le', '-ac', '2', '-ar', str(MUSIC_SR), '-i', str(wav)]
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', *pcm, '-c:a', 'libvorbis', '-b:a', f'{MUSIC_KBPS}k', str(out / 'background-music.ogg')], check=True)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', *pcm, '-c:a', 'libmp3lame', '-b:a', f'{MUSIC_KBPS}k', str(out / 'background-music.mp3')], check=True)
+    wav.unlink()
+    notes = [f'music: {src.name} -> {len(loop) / MUSIC_SR:.4f}s loop ({MUSIC_PHRASES} phrases at {MUSIC_BPM} BPM), '
+             f'trimmed {start / MUSIC_SR * 1000:.1f}ms head / {(len(x) - end) / MUSIC_SR:.2f}s tail, seam {seam_click(loop):.2f} (source)']
+    # Check the encoded files the way the game plays them: skip decoder padding, loop exactly len(loop) samples
+    for ext in ('ogg', 'mp3'):
+        d = ffmpeg_decode(out / f'background-music.{ext}')
+        off = int(np.argmax(np.abs(d).max(1) > 1e-4))
+        dec = d[off:off + len(loop)]
+        notes.append(f'  {ext}: {(out / f"background-music.{ext}").stat().st_size // 1024} KB, '
+                     f'decoder offset {off} samples, seam {seam_click(dec):.2f}')
+    (OUT / 'music.json').write_text(json.dumps({
+        'ogg': 'audio/background-music.ogg', 'mp3': 'audio/background-music.mp3',
+        'loopSeconds': round(len(loop) / MUSIC_SR, 6), 'bpm': MUSIC_BPM
+    }, indent=1))
+    return notes
+
+
 def write_manifest():
     """Every JSON in one script file, so the game also works from file:// (no fetch)."""
     manifest = {f.stem: json.loads(f.read_text()) for f in sorted(OUT.glob('*.json'))}
@@ -1084,9 +1164,13 @@ def build_all():
     notes += build_hazards()
     notes += build_title_logo()
     notes += build_cards()
+    notes += build_music()
     notes += write_manifest()
     print('\n'.join(notes))
 
 
 if __name__ == '__main__':
-    build_all()
+    if sys.argv[1:] == ['music']:  # rebuild only the music
+        print('\n'.join(build_music() + write_manifest()))
+    else:
+        build_all()

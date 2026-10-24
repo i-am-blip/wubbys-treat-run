@@ -85,37 +85,43 @@
                 <span class="keys"><span class="ui-key key">Esc</span> resume</span>
                 <span class="keys"><span class="ui-key key">M</span> sound</span>
             </div>
+            <p id="musicCredit" class="music-credit hidden"></p>
         </div>
     </div>
 
-    <!-- Reward card (shown right after the end scene) -->
+    <!-- Reward card (shown right after the end scene). Always one viewport: polaroid + content column side by side
+         on wide screens, stacked on portrait ones -->
     <div id="cardScreen" class="screen card-screen hidden">
-        <div class="end-stack">
-            <!-- Hero: the polaroid itself (this canvas is the shared/downloaded image) -->
-            <div class="polaroid-drop"><canvas id="cardCanvas" class="card-canvas" width="1080" height="1350" aria-label="Your reward polaroid"></canvas></div>
-            <label class="name-row">
-                <span class="label-text">Your name on the photo</span>
-                <span class="ui-input name-field"><input id="nameInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="a kind stranger"></span>
-            </label>
-            <div class="card-actions">
-                <button id="copyImageBtn" class="ui-btn-primary btn btn-primary">Copy image</button>
-                <button id="playAgainBtn" class="ui-btn-wide btn">Play again</button>
+        <div class="end-layout">
+            <!-- Hero: the polaroid itself (this canvas is the copied image, always 1080x1350) -->
+            <div class="end-photo">
+                <div class="polaroid-drop"><div class="polaroid-frame"><canvas id="cardCanvas" class="card-canvas" width="1080" height="1350" aria-label="Your reward polaroid"></canvas></div></div>
             </div>
-            <p id="cardStatus" class="card-status" aria-live="polite"></p>
-            <!-- Send Wubby some love: one per browser; reveals the creator block -->
-            <div class="love">
-                <button id="loveBtn" class="love-btn" type="button"><span class="love-heart" aria-hidden="true">♥</span><span id="loveLabel">Send Wubby some love</span></button>
-                <p id="loveThanks" class="love-thanks" aria-live="polite"></p>
-            </div>
-            <section id="creatorBlock" class="creator hidden" aria-label="About the creator">
-                <p class="creator-name">Designed and built by <span data-creator="name"></span></p>
-                <p class="creator-tagline" data-creator="tagline"></p>
-                <div class="creator-links">
-                    <a id="creatorLinkedIn" class="creator-cta" data-cta="linkedin" target="_blank" rel="noopener">Say hi on LinkedIn →</a>
-                    <a id="creatorPortfolio" class="creator-link" data-cta="portfolio" target="_blank" rel="noopener">View portfolio</a>
+            <div class="end-content">
+                <label class="name-row">
+                    <span class="label-text">Your name on the photo</span>
+                    <span class="ui-input name-field"><input id="nameInput" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="a kind stranger"></span>
+                </label>
+                <div class="card-actions">
+                    <button id="copyImageBtn" class="ui-btn-primary btn btn-primary">Copy image</button>
+                    <button id="playAgainBtn" class="text-action">Play again</button>
                 </div>
-            </section>
-            <p class="end-footer">Made by <span data-creator="name"></span><span id="footerLinkedInWrap"> · <a id="footerLinkedIn" data-cta="linkedin" target="_blank" rel="noopener">LinkedIn</a></span></p>
+                <p id="cardStatus" class="card-status" aria-live="polite"></p>
+                <!-- Social proof + love: the count shows before the tap; one love per browser reveals the creator block -->
+                <div class="love">
+                    <p id="loveText" class="love-text hidden" aria-live="polite"></p>
+                    <button id="loveBtn" class="love-btn" type="button"><span class="love-heart" aria-hidden="true">♥</span><span id="loveLabel">Send Wubby some love</span></button>
+                </div>
+                <section id="creatorBlock" class="creator ui-panelS-box hidden" aria-label="About the creator">
+                    <h3 class="creator-name">Designed and built by <span data-creator="name"></span></h3>
+                    <p class="creator-tagline" data-creator="tagline"></p>
+                    <div class="creator-links">
+                        <a id="creatorLinkedIn" class="ui-btn-wide btn creator-cta" data-cta="linkedin" target="_blank" rel="noopener">Say hi on LinkedIn →</a>
+                        <a id="creatorPortfolio" class="creator-link" data-cta="portfolio" target="_blank" rel="noopener">View portfolio</a>
+                    </div>
+                </section>
+                <p class="end-footer">Made by <span data-creator="name"></span><span id="footerLinkedInWrap"> · <a id="footerLinkedIn" data-cta="linkedin" target="_blank" rel="noopener">LinkedIn</a></span></p>
+            </div>
         </div>
     </div>
 
@@ -138,6 +144,7 @@
     <script src="levels/level3.js"></script>
     <script src="rewardCard.js"></script>
     <script src="share.js"></script>
+    <script src="audio.js"></script>
     <script src="game.js"></script>
     <script src="love.js"></script>
 </body>

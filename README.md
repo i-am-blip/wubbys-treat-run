@@ -19,7 +19,7 @@ polaroid needs the local server (browsers block reading back canvases drawn from
 - **← → / A D**: move
 - **SPACE / ↑ / W**: jump. Hold for a higher jump, tap for a short hop.
 - **ESC / P**: pause
-- **M**: sound on/off
+- **M**: sound on/off (music and effects together; remembered)
 - **Touch devices**: on-screen ◀ ▶ ▲ buttons
 - **Enter / Space** on the title screen: play
 
@@ -53,6 +53,8 @@ Level 1 shows a short controls hint that fades once you've moved and jumped; Esc
 | `game.js` | Screens, game state, intro, chase, end scene, rendering, HUD, save data |
 | `rewardCard.js` | The reward card image: `renderRewardCard(data, art)` → canvas |
 | `share.js` | Name validation, treat number, polaroid PNG (copy / download fallback) |
+| `audio.js` | One AudioContext: music loop (25%, starts on Play with a 1s fade-in, ducks for pause and jingles, fades with the tab) and the synthesized effects (balanced ~6dB above the music) |
+| `CREDITS.md` | Music credit: fill in title, artist, source and license; the pause menu shows "Music by …" from it |
 | `love.js` | End screen: "Send Wubby some love" and the creator credit (`CONFIG.creator`) |
 | `netlify/` | API routes `/api/love` and `/api/cta-click` (Upstash Redis). See [SETUP.md](SETUP.md) |
 | `analytics.js` | `track()` stub. Wire a provider in `analytics.send()` |
@@ -80,7 +82,9 @@ py -3.12 -m venv .venv
 .venv/Scripts/python scripts/build_assets.py
 ```
 
-Check the labeled contact sheets in `assets/preview/` after a rebuild. Frame maps, target sizes,
+Check the labeled contact sheets in `assets/preview/` after a rebuild. The music
+(`assets/raw/audio/background-music.*`, needs `ffmpeg` on the PATH) is trimmed to a seamless 24-phrase loop at
+zero-crossings and encoded to OGG + MP3 (112 kbps); `scripts/build_assets.py music` rebuilds only that. Frame maps, target sizes,
 tile roles and background layouts are set at the top of the script.
 
 ## License

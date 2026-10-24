@@ -30,9 +30,20 @@ function lovedByText(count) {
     return `♥ ${count} ${count === 1 ? 'player' : 'players'} loved this`;
 }
 
-async function fetchLoveCount() {
+// Local dev (no Upstash, or no API at all) gets a mock count on the end screen so its layout can be checked;
+// in production a failed request just hides the line
+const LOCAL_DEV = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+const MOCK_LOVE_COUNT = 128;
+
+async function fetchLoveCount(mock = false) {
     const res = await apiCall(CONFIG.api.love);
-    return res && res.count != null ? Number(res.count) : NaN;
+    const count = res && res.count != null ? Number(res.count) : NaN;
+    return Number.isFinite(count) || !(mock && LOCAL_DEV) ? count : MOCK_LOVE_COUNT;
+}
+
+function setLoveText(text) {
+    $('loveText').textContent = text || '';
+    $('loveText').classList.toggle('hidden', !text);
 }
 
 // Title screen: quiet count near the bottom, hidden when there is none or the request fails
@@ -53,8 +64,7 @@ function showLoveSent(count) {
     btn.disabled = true;
     btn.classList.add('sent');
     $('loveLabel').textContent = 'Love sent';
-    $('loveThanks').textContent = loveThanksText(count);
-    $('loveThanks').classList.add('shown');
+    setLoveText(loveThanksText(count));
     $('creatorBlock').classList.remove('hidden');
 }
 
@@ -84,10 +94,12 @@ $('loveBtn').addEventListener('click', async () => {
     if (btn.disabled) return;
     btn.disabled = true;
     heartBurst(btn);
+    sound.heart();
     love.remember();
     track('love_sent');
     const res = await apiCall(CONFIG.api.love, { method: 'POST' });
-    showLoveSent(res && Number(res.count));
+    const count = res && res.count != null ? Number(res.count) : (LOCAL_DEV ? MOCK_LOVE_COUNT + 1 : NaN);
+    showLoveSent(count);
 });
 
 // Fill in the creator credit once; links without a URL stay hidden
@@ -117,21 +129,17 @@ setupCreator();
 async function showLoveSection() {
     const btn = $('loveBtn');
     btn.classList.remove('sent');
-    $('loveThanks').classList.remove('shown');
     if (!love.sent()) {
         btn.disabled = false;
         $('loveLabel').textContent = 'Send Wubby some love';
-        $('loveThanks').textContent = '';
+        setLoveText('');
         $('creatorBlock').classList.add('hidden');
-        // Before the tap, the same quiet count as on the title screen
-        const text = lovedByText(await fetchLoveCount());
-        if (text && !love.sent()) {
-            $('loveThanks').textContent = text;
-            $('loveThanks').classList.add('shown');
-        }
+        // Social proof before the tap: "♥ N players loved this"
+        const text = lovedByText(await fetchLoveCount(true));
+        if (!love.sent()) setLoveText(text);
         return;
     }
     showLoveSent(NaN);
-    const count = await fetchLoveCount();
-    if (Number.isFinite(count)) $('loveThanks').textContent = loveThanksText(count);
+    const count = await fetchLoveCount(true);
+    if (Number.isFinite(count)) setLoveText(loveThanksText(count));
 }
