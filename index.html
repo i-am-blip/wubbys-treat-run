@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>Wubby's Treat Run</title>
     <meta name="description" content="Wubby's Treat Run: a short pixel platformer. A sneaky squirrel stole Wubby's treat! Chase it through three levels and get it back.">
     <meta name="theme-color" content="#71d2e0">
@@ -60,8 +60,11 @@
         <span class="hint-keys"><b>◀ ▶</b> move</span><span class="hint-dot">·</span><span class="hint-keys"><b class="kbd-only">SPACE</b><b class="touch-only">JUMP</b> jump</span><span class="hint-dot">·</span><span>hold for higher</span>
     </div>
 
+    <!-- Intro: skip hint, above the touch controls -->
+    <div id="skipHint" class="skip-hint" aria-live="polite"></div>
+
     <!-- Level start banner (fades in and out; gameplay keeps running) -->
-    <div id="levelBanner" class="level-banner" aria-live="polite"><div class="ui-banner banner-ribbon"><span id="levelBannerText"></span></div></div>
+    <div id="levelBanner" class="level-banner" aria-live="polite"><div class="ui-banner banner-ribbon"><span id="levelBannerText"></span></div><p id="levelBannerSub" class="banner-sub"></p></div>
 
     <!-- Title: logo, then the story line, then Play; everything else stays quiet -->
     <div id="titleScreen" class="screen title-screen hidden">
@@ -76,11 +79,14 @@
 
     <!-- Pause -->
     <div id="pauseScreen" class="screen hidden">
-        <div class="ui-panelL-box panel">
-            <h2 class="heading">Paused</h2>
-            <button id="resumeBtn" class="ui-btn-primary btn btn-primary">RESUME</button>
-            <button id="restartLevelBtn" class="ui-btn-wide btn">Restart level</button>
-            <button id="quitBtn" class="ui-btn-wide btn">Quit to title</button>
+        <div class="ui-panelL-box panel pause-card" role="dialog" aria-modal="true" aria-labelledby="pauseHeading">
+            <button id="pauseCloseBtn" class="pause-close" aria-label="Resume">×</button>
+            <h2 id="pauseHeading" class="heading">Paused</h2>
+            <div class="pause-actions">
+                <button id="resumeBtn" class="ui-btn-primary btn btn-primary">Resume</button>
+                <button id="restartLevelBtn" class="ui-btn-wide btn">Restart level</button>
+                <button id="quitBtn" class="ui-btn-wide btn">Quit to title</button>
+            </div>
             <div class="pause-keys">
                 <span class="keys"><span class="ui-key key">Esc</span> resume</span>
                 <span class="keys"><span class="ui-key key">M</span> sound</span>

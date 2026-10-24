@@ -38,7 +38,14 @@ const sound = {
             this.ctx = new AC();
             this.nodes = this.graph(this.ctx);
         }
-        if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+        if (this.ctx.state !== 'running' && !this.state.hidden) {
+            this.ctx.resume().catch(() => {});
+            // iOS Safari only unlocks once something plays inside the gesture: a one-sample silent buffer
+            const src = this.ctx.createBufferSource();
+            src.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+            src.connect(this.ctx.destination);
+            src.start(0);
+        }
         if (this.state.wanted) this.startMusic();
     },
 
@@ -237,9 +244,17 @@ const sound = {
         this.musicLevel(paused ? 0.2 : AUDIO.restore);
     },
 
+    // Tab hidden or phone locked: fade out, then suspend the whole context; on return resume and fade back in
     setHidden(hidden) {
         this.state.hidden = hidden;
-        this.musicLevel(hidden ? 0.3 : AUDIO.restore);
+        if (!this.ctx) return;
+        clearTimeout(this.suspendTimer);
+        if (hidden) {
+            this.musicLevel(0.3);
+            this.suspendTimer = setTimeout(() => { if (this.state.hidden) this.ctx.suspend().catch(() => {}); }, 350);
+        } else {
+            this.ctx.resume().catch(() => {}).then(() => this.musicLevel(AUDIO.restore));
+        }
     },
 
     // Mute covers music and effects together (save.data.muted is persisted by toggleMute)
@@ -270,5 +285,13 @@ function loadMusicCredit() {
     }).catch(() => {});
 }
 
-// The first input anywhere (click, tap or key) starts the audio
-['pointerdown', 'keydown'].forEach(type => window.addEventListener(type, () => sound.unlock(), { once: true, capture: true }));
+// The first input anywhere (tap, click or key) unlocks the audio. iOS only accepts some of these as a gesture,
+// so the listeners stay until the context is actually running.
+const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
+function unlockOnGesture() {
+    sound.unlock();
+    if (sound.ctx && sound.ctx.state === 'running') UNLOCK_EVENTS.forEach(t => window.removeEventListener(t, unlockOnGesture, true));
+}
+UNLOCK_EVENTS.forEach(t => window.addEventListener(t, unlockOnGesture, true));
+window.addEventListener('pagehide', () => sound.setHidden(true));
+window.addEventListener('pageshow', () => { if (!document.hidden) sound.setHidden(false); });

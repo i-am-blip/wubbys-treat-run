@@ -4,8 +4,12 @@
 const ART_DIR = 'public/assets/game/';
 const art = { meta: window.ART_MANIFEST || {}, images: {} };
 
+// Title scene for this screen shape: the tall one on portrait screens (aspect below ~0.8), the wide one otherwise
+const titleSceneFile = () => (innerWidth / Math.max(1, innerHeight) < 0.8 ? 'title_mobile.png' : 'title_bg.png');
+
 function loadArt(onDone) {
-    const files = new Set(['title_bg.png', 'logo.png', 'card_photo.jpg', 'card_photo_gold.jpg']);
+    // Only the title scene this screen uses loads up front; the other one loads if the screen is turned
+    const files = new Set([titleSceneFile(), 'logo.png', 'card_photo.jpg', 'card_photo_gold.jpg']);
     for (const m of Object.values(art.meta)) {
         if (m.image) files.add(m.image);
         if (m.layers) m.layers.forEach(l => files.add(l.image));
@@ -22,6 +26,17 @@ function loadArt(onDone) {
 }
 
 const artImage = (file) => art.images[file];
+
+// An image that isn't preloaded: starts loading on first request, returns null until it's ready
+function lazyArtImage(file) {
+    if (!art.images[file]) {
+        const img = new Image();
+        img.src = ART_DIR + file;
+        art.images[file] = img;
+    }
+    const img = art.images[file];
+    return img.complete && img.naturalWidth ? img : null;
+}
 
 function anim(sheet, name) {
     return art.meta[sheet].animations[name];

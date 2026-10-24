@@ -20,7 +20,7 @@ polaroid needs the local server (browsers block reading back canvases drawn from
 - **SPACE / ↑ / W**: jump. Hold for a higher jump, tap for a short hop.
 - **ESC / P**: pause
 - **M**: sound on/off (music and effects together; remembered)
-- **Touch devices**: on-screen ◀ ▶ ▲ buttons
+- **Touch devices**: ◀ ▶ bottom-left, JUMP bottom-right (hold longer to jump higher; move and jump together). Portrait and landscape both work
 - **Enter / Space** on the title screen: play
 
 Level 1 shows a short controls hint that fades once you've moved and jumped; Esc and M are listed in the pause menu.
@@ -74,7 +74,7 @@ URL; it is printed on the polaroid and used in share links (localhost/file URLs 
 
 ## Art pipeline
 
-The final art lives in `assets/raw/` (green-screen sheets). To rebuild the game assets:
+The final art lives in `assets/raw/` (green-screen sheets; `title_scene_mobile.png` is the portrait title scene). To rebuild the game assets:
 
 ```bash
 py -3.12 -m venv .venv

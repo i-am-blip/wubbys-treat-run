@@ -953,3 +953,450 @@ a:focus-visible {
         transform: none;
     }
 }
+
+/* =====================================================================================================
+   Mobile pass: one locked viewport from 360x640 up, portrait and landscape.
+   Type scale (pixel font): meta 12-14px, body 14-16px, buttons 16-18px, headings/banners 20-28px.
+   Tap targets: 44x44px minimum with 8px+ between them. Edge-anchored UI respects the safe-area insets.
+   ===================================================================================================== */
+
+/* Locked page: no scroll, no rubber-band, no zoom gestures, no selection or callouts on controls */
+html,
+body {
+    height: 100%;
+    overscroll-behavior: none;
+}
+
+body {
+    position: fixed;
+    inset: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+#gameCanvas {
+    touch-action: none;
+}
+
+button,
+a {
+    touch-action: manipulation;
+}
+
+#nameInput {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+.screen {
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+/* Buttons: never under a 44px target (game.js sets --px-btn to whole device pixels), 16-18px labels */
+.btn {
+    --px: var(--px-btn);
+    font-size: clamp(16px, calc(8 * var(--px)), 18px);
+}
+
+.btn-primary {
+    font-size: 18px;
+}
+
+.heading {
+    font-size: clamp(20px, calc(14 * var(--px)), 28px);
+}
+
+.label-text {
+    font-size: clamp(12px, calc(7 * var(--px)), 16px);
+}
+
+.muted,
+.music-credit {
+    font-size: clamp(12px, calc(5 * var(--px)), 14px);
+}
+
+/* ---------- HUD ---------- */
+.hud {
+    padding-top: max(calc(6 * var(--px)), env(safe-area-inset-top));
+    padding-left: max(calc(8 * var(--px)), env(safe-area-inset-left));
+    padding-right: max(calc(8 * var(--px)), env(safe-area-inset-right));
+}
+
+.hud-text {
+    font-size: max(12px, calc(12 * var(--px)));
+}
+
+.journey-labels span {
+    font-size: max(12px, calc(11 * var(--px)));
+}
+
+.hud-buttons {
+    gap: max(10px, var(--gap));
+}
+
+/* The icons stay their art size; an invisible margin makes the tap target at least 44x44 */
+.icon-btn {
+    position: relative;
+}
+
+.icon-btn::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc((31 * var(--px) - 44px) / 2)) min(0px, calc((33 * var(--px) - 44px) / 2));
+}
+
+.hearts-full,
+.hearts-compact {
+    display: flex;
+    align-items: center;
+    gap: calc(2 * var(--px));
+}
+
+.hearts-compact {
+    display: none;
+}
+
+/* Narrow screens and phone landscape: hearts as one icon + number, so the panels stay on one row */
+@media (max-width: 560px), (max-height: 500px) {
+    .hearts-full {
+        display: none;
+    }
+
+    .hearts-compact {
+        display: flex;
+    }
+
+    .hud-left {
+        flex-wrap: nowrap;
+    }
+}
+
+/* ---------- Level banner: ribbon heading (18-24px) + place name (14-16px), within 90vw ---------- */
+.level-banner {
+    top: max(18%, calc(env(safe-area-inset-top) + 72px));
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.banner-ribbon {
+    --px: var(--px-btn);
+    justify-content: center;
+    font-size: clamp(18px, 1vw + 14px, 24px);
+}
+
+.banner-sub {
+    max-width: 90vw;
+    font-size: clamp(14px, 0.6vw + 12px, 16px);
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    text-shadow: 0 1px 0 rgba(60, 20, 0, 0.8), 0 0 6px rgba(40, 20, 0, 0.6);
+}
+
+/* ---------- Intro skip hint: above the touch controls, never under them ---------- */
+.skip-hint {
+    position: fixed;
+    left: 50%;
+    bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+    z-index: 160;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(34, 22, 14, 0.6);
+    font-size: clamp(14px, 0.5vw + 12px, 16px);
+    font-weight: 500;
+    color: var(--cream);
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(-50%);
+    transition: opacity 300ms ease;
+    pointer-events: none;
+}
+
+.skip-hint.show {
+    opacity: 1;
+}
+
+body.touch .skip-hint {
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--touch-size) + 18px);
+}
+
+.controls-hint {
+    font-size: clamp(14px, 0.5vw + 12px, 16px);
+}
+
+@media (pointer: coarse) {
+    .controls-hint {
+        font-size: 14px;
+    }
+}
+
+/* ---------- Touch controls: move bottom-left, jump bottom-right, 64px+, see-through ---------- */
+:root {
+    --touch-size: clamp(64px, 17vmin, 84px);
+}
+
+.touch-controls {
+    --px: calc(var(--touch-size) / 20);
+    padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.touch-group {
+    gap: 14px;
+}
+
+.touch-btn {
+    width: var(--touch-size);
+    height: var(--touch-size);
+    padding-bottom: calc(2 * var(--px));
+    font-size: calc(var(--touch-size) * 0.34);
+    opacity: 0.75;
+    transition: transform 80ms var(--ease-out), opacity 80ms ease;
+}
+
+.touch-btn.jump {
+    width: calc(var(--touch-size) * 1.6);
+    min-width: 0;
+    font-size: calc(var(--touch-size) * 0.24);
+}
+
+.touch-btn.pressed {
+    transform: translateY(2px) scale(0.96);
+    filter: none;
+    opacity: 0.95;
+}
+
+@media (pointer: coarse) {
+    body.in-level .touch-controls {
+        display: none;
+    }
+}
+
+body.touch.in-level .touch-controls {
+    display: flex;
+}
+
+/* ---------- Pause: a centred card that always fits; close with x, tap outside or Esc ---------- */
+.pause-card {
+    position: relative;
+    width: min(90vw, 420px);
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    gap: 12px;
+    animation: popIn 200ms var(--ease-out) both;
+}
+
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+
+.pause-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--ink-soft);
+    transition: transform 160ms var(--ease-out), color 160ms ease;
+}
+
+.pause-close:active {
+    transform: scale(0.94);
+}
+
+.pause-actions {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+}
+
+.pause-actions .btn {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Landscape and desktop: Resume across the top, the two others side by side */
+@media (min-aspect-ratio: 1/1) {
+    .pause-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .pause-actions .btn-primary {
+        grid-column: 1 / -1;
+    }
+}
+
+.pause-keys {
+    font-size: clamp(12px, calc(7 * var(--px)), 14px);
+}
+
+.pause-keys .key {
+    font-size: clamp(12px, calc(8 * var(--px)), 16px);
+}
+
+body.touch .pause-keys {
+    display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .pause-close:hover {
+        color: var(--ink);
+    }
+}
+
+/* ---------- Title ---------- */
+.play-btn {
+    --px: max(var(--px-btn), 2.2858px); /* 21 art px tall -> at least 48px */
+    min-width: 0;
+    width: min(280px, 84vw);
+    font-size: 18px;
+}
+
+.story {
+    font-size: clamp(14px, 0.6vw + 12px, 16px);
+}
+
+.title-love {
+    bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+    font-size: clamp(12px, 0.4vw + 11px, 14px);
+}
+
+/* Portrait: logo, story and Play in the top ~40%, over the open sky of the tall scene */
+@media (max-aspect-ratio: 4/5) {
+    .title-screen {
+        align-items: flex-start;
+        padding-top: max(6dvh, calc(env(safe-area-inset-top) + 16px));
+        background:
+            radial-gradient(ellipse 60% 26% at 50% 22%, rgba(255, 246, 228, 0.38), rgba(255, 246, 228, 0.2) 55%, rgba(255, 246, 228, 0) 100%),
+            radial-gradient(ellipse 90% 80% at 50% 45%, rgba(24, 12, 4, 0) 50%, rgba(24, 12, 4, 0.45) 100%);
+    }
+
+    .title-stack {
+        gap: clamp(10px, 2dvh, 18px);
+        width: 100%;
+    }
+
+    .logo {
+        width: min(80vw, 340px);
+        height: auto;
+        margin-bottom: 0;
+    }
+
+    .story {
+        max-width: min(44ch, 88vw);
+    }
+}
+
+/* ---------- End screen on phones ---------- */
+.card-screen {
+    padding-left: max(var(--pad), env(safe-area-inset-left));
+    padding-right: max(var(--pad), env(safe-area-inset-right));
+}
+
+.name-field {
+    --px: var(--px-input);
+}
+
+.creator-cta {
+    --px: var(--px-btn);
+    font-size: 16px;
+}
+
+.text-action,
+.love-btn,
+.creator-link {
+    min-height: 44px;
+}
+
+.text-action,
+.creator-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+}
+
+.end-footer a {
+    display: inline-block;
+    padding: 14px 6px;
+    margin: -14px 0;
+}
+
+.end-footer {
+    padding: 14px 0;
+}
+
+@media (max-aspect-ratio: 11/10) {
+    .card-actions .btn-primary {
+        width: min(100%, 320px);
+    }
+}
+
+/* Phone landscape: Copy image + Play again side by side, count beside the love button */
+@media (min-aspect-ratio: 11/10) and (max-height: 500px) {
+    .card-actions {
+        flex-direction: row;
+        gap: 12px;
+    }
+
+    .card-actions .btn-primary {
+        min-width: 0;
+        padding: 0 18px;
+    }
+
+    .love {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px 12px;
+    }
+
+    .end-footer {
+        padding: 6px 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pause-card {
+        animation: fadeIn 200ms ease both;
+    }
+
+    .touch-btn.pressed,
+    .pause-close:active {
+        transform: none;
+    }
+}
+
+/* The touch flag (set by game.js) also swaps the keyboard wording for the touch wording */
+body.touch .touch-only {
+    display: inline;
+}
+
+body.touch .kbd-only {
+    display: none;
+}
+
+#nameInput {
+    height: 100%;
+}
+
+/* Short landscape screens (phones on their side): a smaller logo keeps logo, story and Play above the characters */
+@media (max-height: 500px) and (min-aspect-ratio: 4/5) {
+    .title-stack {
+        gap: 8px;
+    }
+
+    .logo {
+        width: auto;
+        height: min(32dvh, calc(89 * var(--px)));
+        margin-bottom: 0;
+    }
+}

@@ -21,24 +21,37 @@ const save = (() => {
     };
 })();
 
-// ---------- Canvas: integer scaling in device pixels ----------
+// ---------- Canvas: integer scaling in backing-store pixels ----------
 const canvas = $('gameCanvas');
 const ctx = canvas.getContext('2d');
-const view = { width: 0, height: 0, scale: 1 };
+// cssPerPx: CSS px per game px. bottomInset: game px hidden by the touch controls (0 without them).
+const view = { width: 0, height: 0, scale: 1, cssPerPx: 1, bottomInset: 0, portrait: false };
+
+// Touch UI: on-screen controls and camera framing above them (the screenshot harness can force it)
+const touchUI = () => !!window.__forceTouch || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
+    // The backing store is capped at 2x: phones at 3x cost 2.25x the fill for no visible gain on pixel art
+    const backing = Math.min(dpr, 2);
     // The canvas fills the layout viewport in CSS; the backing store matches its measured box,
     // so it is never stretched (100vh and innerHeight can disagree, e.g. with mobile toolbars)
     const box = canvas.getBoundingClientRect();
-    canvas.width = Math.round((box.width || window.innerWidth) * dpr);
-    canvas.height = Math.round((box.height || window.innerHeight) * dpr);
-    // Whole device pixels per game pixel, so every art pixel is the same size on screen
-    view.scale = Math.max(1, Math.round(CONFIG.scale * dpr));
+    const cssW = box.width || window.innerWidth, cssH = box.height || window.innerHeight;
+    canvas.width = Math.round(cssW * backing);
+    canvas.height = Math.round(cssH * backing);
+    // Portrait screens zoom in a little more, so the playable band fills more of the tall screen
+    view.portrait = cssW / cssH < 0.8;
+    const zoom = view.portrait ? CONFIG.scalePortrait : CONFIG.scale;
+    // Whole backing pixels per game pixel, so every art pixel is the same size on screen
+    view.scale = Math.max(1, Math.round(zoom * backing));
+    view.cssPerPx = view.scale / backing;
     view.width = Math.ceil(canvas.width / view.scale);
     view.height = Math.ceil(canvas.height / view.scale);
     ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    document.body.classList.toggle('touch', touchUI());
+    measureTouchControls();
     // UI art pixels: also whole device pixels (screens, HUD, and the small journey markers)
     const vw = window.innerWidth;
     const ui = Math.max(1, Math.round(dpr * (vw >= 900 ? 2 : vw >= 600 ? 1.5 : 1)));
@@ -49,6 +62,22 @@ function resizeCanvas() {
     root.setProperty('--px-end', `${Math.max(ui, Math.round(dpr * 1.5)) / dpr}px`);
     root.setProperty('--px-hud', `${hud / dpr}px`);
     root.setProperty('--px-mark', `${Math.max(1, Math.floor(hud / 2)) / dpr}px`);
+    // Buttons (21 art px tall) and the name field (18) never drop below a 44px tap target
+    root.setProperty('--px-btn', `${Math.max(ui, Math.ceil(44 * dpr / 21)) / dpr}px`);
+    root.setProperty('--px-input', `${Math.max(ui, Math.ceil(44 * dpr / 18)) / dpr}px`);
+}
+
+// How much of the bottom of the screen the touch controls cover, in game px (plus a little air)
+function measureTouchControls() {
+    view.bottomInset = 0;
+    if (!touchUI()) return;
+    const el = document.querySelector('.touch-controls');
+    if (!el) return;
+    const shown = getComputedStyle(el).display !== 'none';
+    if (!shown) el.style.display = 'flex';
+    const top = Math.min(...[...el.querySelectorAll('.touch-btn')].map(b => b.getBoundingClientRect().top));
+    if (!shown) el.style.display = '';
+    if (Number.isFinite(top)) view.bottomInset = Math.ceil((window.innerHeight - top + 10) / view.cssPerPx);
 }
 resizeCanvas();
 window.addEventListener('resize', () => {
@@ -152,7 +181,8 @@ function startLevel(index, retry = false, showBanner = true) {
 // "Level N of 3 · name": fades in, holds ~2s, fades out (CSS); gameplay keeps running
 function showLevelBanner(index) {
     const el = $('levelBanner');
-    $('levelBannerText').textContent = `Level ${index + 1} of ${levels.length} · ${levels[index].name}`;
+    $('levelBannerText').textContent = `Level ${index + 1} of ${levels.length}`;
+    $('levelBannerSub').textContent = levels[index].name;
     el.classList.remove('show');
     void el.offsetWidth; // restart the animation
     el.classList.add('show');
@@ -182,6 +212,9 @@ function setScreen(screen) {
     $('hud').classList.toggle('hidden', !inLevel);
     document.body.classList.toggle('in-level', inLevel && screen !== 'paused');
     if (!inLevel) $('levelBanner').classList.remove('show');
+    $('skipHint').classList.toggle('show', screen === 'intro');
+    $('skipHint').textContent = touchUI() ? 'Tap jump to skip' : 'Press jump to skip';
+    if (inLevel) measureTouchControls();
     if (screen !== 'playing') $('controlsHint').classList.remove('show');
     if (screen === 'title') renderTitleStats();
 }
@@ -251,12 +284,21 @@ window.addEventListener('pagehide', () => {
 
 document.querySelectorAll('[data-control]').forEach(btn => {
     const control = btn.dataset.control;
-    const down = (e) => { e.preventDefault(); btn.classList.add('pressed'); if (control === 'jump') pressJump(); else input[control] = true; };
+    // Each button tracks its own pointer (capture), so moving and jumping work at the same time; the jump's hold time
+    // is the touch duration. A 10ms tick where vibration is supported.
+    const down = (e) => {
+        e.preventDefault();
+        if (btn.setPointerCapture) try { btn.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
+        btn.classList.add('pressed');
+        if (navigator.vibrate) try { navigator.vibrate(10); } catch (err) { /* blocked */ }
+        if (control === 'jump') pressJump(); else input[control] = true;
+    };
     const up = (e) => { e.preventDefault(); btn.classList.remove('pressed'); if (control === 'jump') releaseJump(); else input[control] = false; };
     btn.addEventListener('pointerdown', down);
     btn.addEventListener('pointerup', up);
     btn.addEventListener('pointercancel', up);
-    btn.addEventListener('pointerleave', up);
+    btn.addEventListener('lostpointercapture', up);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
 });
 // Every on-screen button clicks (not the touch controls, which are held like keys)
 document.addEventListener('click', (e) => {
@@ -268,6 +310,9 @@ $('muteBtn').addEventListener('click', toggleMute);
 
 $('playBtn').addEventListener('click', () => { sound.unlock(); newRun(); });
 $('resumeBtn').addEventListener('click', togglePause);
+$('pauseCloseBtn').addEventListener('click', togglePause);
+// A tap on the dimmed backdrop (outside the card) resumes too
+$('pauseScreen').addEventListener('click', (e) => { if (e.target === $('pauseScreen') && game.screen === 'paused') togglePause(); });
 $('restartLevelBtn').addEventListener('click', restartLevel);
 $('quitBtn').addEventListener('click', quitToTitle);
 
@@ -910,13 +955,18 @@ function updateParticles(dt) {
     });
 }
 
+// More room ahead of Wubby than behind (a bit more again on narrow portrait screens). With touch controls the
+// view slides down so the main ground line sits above them; the ground filler drawn under the level fills the gap.
 function cameraTarget() {
     const { level, player } = game.lv;
-    const x = Math.max(0, Math.min(player.x - view.width * CONFIG.camera.leadRatio, level.pixelWidth - view.width));
+    const lead = view.portrait ? CONFIG.camera.leadRatioPortrait : CONFIG.camera.leadRatio;
+    const x = Math.max(0, Math.min(player.x - view.width * lead, level.pixelWidth - view.width));
+    const below = Math.max(0, Math.min(GROUND_EXTRA * T, view.bottomInset - (level.pixelHeight - groundLine(level))));
+    const visibleH = view.height - view.bottomInset;
     // Short levels sit on the bottom of the screen; tall ones follow Wubby vertically
-    const y = level.pixelHeight <= view.height
-        ? level.pixelHeight - view.height
-        : Math.max(0, Math.min(player.y - view.height / 2, level.pixelHeight - view.height));
+    const y = level.pixelHeight + below <= view.height
+        ? level.pixelHeight - view.height + below
+        : Math.max(0, Math.min(player.y - visibleH / 2, level.pixelHeight - view.height + below));
     return { x: level.pixelWidth < view.width ? (level.pixelWidth - view.width) / 2 : x, y };
 }
 
@@ -935,12 +985,16 @@ const hash = (n) => { let h = (n * 2654435761) >>> 0; h ^= h >>> 15; return h >>
 // Pre-render the level's tiles and props once per attempt (and again if the quiet assist changes them).
 // Exposed tops use the theme's ground tiles, one-tile-thick ledges its platform tiles, everything else the fill.
 // Pits stay transparent so the parallax background shows through; the walls beside them get a side face.
+// Rows of ground filler drawn under the level (no collision), so the camera can sit lower on touch screens
+const GROUND_EXTRA = 6;
+
 function renderLevelTiles(level) {
     const ts = art.meta[`tiles_${level.theme}`];
     const img = artImage(ts.image);
-    const [off, c] = makeCanvas(level.pixelWidth, level.pixelHeight);
-    const [tiles, tc] = makeCanvas(level.pixelWidth, level.pixelHeight);
-    const solid = (cc, r) => cc >= 0 && cc < level.width && isSolid(level, cc, r);
+    const rows = level.height + GROUND_EXTRA;
+    const [off, c] = makeCanvas(level.pixelWidth, rows * T);
+    const [tiles, tc] = makeCanvas(level.pixelWidth, rows * T);
+    const solid = (cc, r) => cc >= 0 && cc < level.width && isSolid(level, cc, Math.min(r, level.height - 1));
     const tile = (name, x, y) => {
         const t = ts.tiles[name];
         tc.drawImage(img, t.x, t.y, t.w, t.h, x, y, T, T);
@@ -957,7 +1011,7 @@ function renderLevelTiles(level) {
 
     // 2. Tiles. Only open air ends a surface: ground running into a step-up stays a mid tile, so steps never look cut off.
     const edges = [];
-    for (let r = 0; r < level.height; r++) {
+    for (let r = 0; r < rows; r++) {
         for (let cc = 0; cc < level.width; cc++) {
             if (!solid(cc, r)) continue;
             if (solid(cc, r - 1)) { tile(ts.roles.ground.fill, cc * T, r * T); continue; }
@@ -978,7 +1032,7 @@ function renderLevelTiles(level) {
     //    edge tile's width, so it runs straight down from the corner instead of sticking out like a ledge.
     const inset = { [-1]: edgeInset(ts, img, ts.roles.ground.left, -1), [1]: edgeInset(ts, img, ts.roles.ground.right, 1) };
     const FACE = [0.4, 0.26, 0.14, 0.06]; // per pixel column, from the edge inward
-    for (let r = 0; r < level.height; r++) {
+    for (let r = 0; r < rows; r++) {
         for (let cc = 0; cc < level.width; cc++) {
             if (!solid(cc, r) || !solid(cc, r - 1)) continue;
             if (!solid(cc - 1, r)) tc.clearRect(cc * T, r * T, inset[-1], T);
@@ -986,7 +1040,7 @@ function renderLevelTiles(level) {
         }
     }
     tc.globalCompositeOperation = 'source-atop';
-    for (let r = 0; r < level.height; r++) {
+    for (let r = 0; r < rows; r++) {
         for (let cc = 0; cc < level.width; cc++) {
             if (!solid(cc, r)) continue;
             const top = !solid(cc, r - 1);
@@ -1016,11 +1070,11 @@ function renderLevelTiles(level) {
     });
 
     // 4. The walkable layer is interactive: a 1px darker outer outline around all of it
-    const [ring, rg] = makeCanvas(level.pixelWidth, level.pixelHeight);
+    const [ring, rg] = makeCanvas(level.pixelWidth, rows * T);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) rg.drawImage(tiles, dx, dy);
     rg.globalCompositeOperation = 'source-in';
     rg.fillStyle = OUTLINE_DARK;
-    rg.fillRect(0, 0, level.pixelWidth, level.pixelHeight);
+    rg.fillRect(0, 0, level.pixelWidth, rows * T);
     c.drawImage(ring, 0, 0);
     c.drawImage(tiles, 0, 0);
 
@@ -1058,16 +1112,19 @@ function edgeInset(ts, img, name, dir) {
 }
 
 // Title scene: kept at its generated resolution, covering the screen at whole device pixels
+// Title scene: the tall version on portrait screens, the wide one otherwise. It covers the screen anchored to the
+// bottom, so the characters along the ground are never cropped (the sky takes the slack)
 function drawTitleScene() {
-    const img = artImage('title_bg.png');
-    ctx.fillStyle = '#2a3a4a';
+    const file = titleSceneFile();
+    const img = artImage(file) && artImage(file).naturalWidth ? artImage(file) : lazyArtImage(file);
+    ctx.fillStyle = '#7cc8e8';
     ctx.fillRect(0, 0, view.width, view.height);
-    if (!img || !img.naturalWidth) return;
+    if (!img) return;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const k = Math.max(1, Math.ceil(Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight)));
-    const w = img.naturalWidth * k, h = img.naturalHeight * k;
-    ctx.drawImage(img, Math.floor((canvas.width - w) / 2), Math.floor((canvas.height - h) / 2), w, h);
+    const k = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+    const w = Math.ceil(img.naturalWidth * k), h = Math.ceil(img.naturalHeight * k);
+    ctx.drawImage(img, Math.floor((canvas.width - w) / 2), canvas.height - h, w, h);
     ctx.restore();
 }
 
@@ -1181,11 +1238,10 @@ function drawBackground() {
     const camX = Math.round(game.camera.x);
     const groundY = groundLine(game.lv.level) - Math.round(game.camera.y);
     const tops = backgroundLayout(bg, H, groundY);
-    // Above the sky layer (very tall views only): a soft zenith gradient into the sky colour, never a flat band
-    const sky = ctx.createLinearGradient(0, 0, 0, Math.max(1, tops[0] + BG_TOP_FADE));
-    sky.addColorStop(0, shade(bg.sky, 0.86));
-    sky.addColorStop(1, bg.sky);
-    ctx.fillStyle = sky;
+    // Above the sky layer (very tall views only): a soft zenith gradient into the sky colour, never a flat band.
+    // Gradients are cached: they only change with the theme, the view size or the camera's vertical position.
+    const g = bgGradients(key, bg, tops[0], groundY);
+    ctx.fillStyle = g.sky;
     ctx.fillRect(0, 0, W, H);
     layers.forEach((img, i) => {
         const w = img.width;
@@ -1193,13 +1249,25 @@ function drawBackground() {
         for (let x = -offset; x < W; x += w) ctx.drawImage(img, x, tops[i]);
     });
     // Depth haze from just above the ground line down: what shows through a gap reads as far away, never as a floor
+    ctx.fillStyle = g.deep;
+    ctx.fillRect(0, groundY - T * 2, W, H - groundY + T * 2);
+}
+
+const bgGradientCache = { key: '', value: null };
+function bgGradients(theme, bg, skyTop, groundY) {
+    const key = `${theme}|${skyTop}|${groundY}`;
+    if (bgGradientCache.key === key) return bgGradientCache.value;
+    const sky = ctx.createLinearGradient(0, 0, 0, Math.max(1, skyTop + BG_TOP_FADE));
+    sky.addColorStop(0, shade(bg.sky, 0.86));
+    sky.addColorStop(1, bg.sky);
     const haze = hazeColor(bg);
     const deep = ctx.createLinearGradient(0, groundY - T * 2, 0, groundY + T * 2);
     deep.addColorStop(0, `rgba(${haze}, 0)`);
     deep.addColorStop(0.5, `rgba(${haze}, 0.35)`);
     deep.addColorStop(1, `rgba(${haze}, 0.6)`);
-    ctx.fillStyle = deep;
-    ctx.fillRect(0, groundY - T * 2, W, H - groundY + T * 2);
+    bgGradientCache.key = key;
+    bgGradientCache.value = { sky, deep };
+    return bgGradientCache.value;
 }
 
 // The theme's haze as 'r, g, b': its sky colour, lifted toward warm light for dark (indoor) themes
@@ -1213,6 +1281,7 @@ function hazeColor(bg) {
 
 // Small soft pixel shadow on the ground under an interactive object (feet / bottom at y). It shrinks and fades
 // with height and is skipped when there is no ground within 3 tiles (bones arcing over a gap).
+const SHADOW_STYLES = [0.28, 0.16].map(a => Array.from({ length: 11 }, (_, i) => `rgba(20, 10, 4, ${(a * i / 10).toFixed(3)})`));
 function drawGroundShadow(cx, y, w) {
     const level = game.lv.level;
     const c = Math.floor(cx / T);
@@ -1225,9 +1294,10 @@ function drawGroundShadow(cx, y, w) {
     if (k <= 0) return;
     const sw = Math.max(4, Math.round(w * (0.6 + 0.4 * k)));
     const x = Math.round(cx - sw / 2);
-    ctx.fillStyle = `rgba(20, 10, 4, ${0.28 * k})`;
+    const step = Math.round(k * 10); // 10 cached shades instead of a new colour string per shadow per frame
+    ctx.fillStyle = SHADOW_STYLES[0][step];
     ctx.fillRect(x, ground - 1, sw, 2);
-    ctx.fillStyle = `rgba(20, 10, 4, ${0.16 * k})`;
+    ctx.fillStyle = SHADOW_STYLES[1][step];
     ctx.fillRect(x + 2, ground - 2, sw - 4, 1);
     ctx.fillRect(x - 2, ground - 1, 2, 1);
     ctx.fillRect(x + sw, ground - 1, 2, 1);
@@ -1276,6 +1346,21 @@ function hazardVariants(level) {
     return level.hazardNames;
 }
 
+// The faint red glow behind a hazard, pre-rendered once per pulse frame
+const hazardGlows = [];
+function hazardGlow(dim) {
+    if (!hazardGlows[dim]) {
+        const [c, g] = makeCanvas(42, 27);
+        const glow = g.createRadialGradient(21, 21, 1, 21, 21, 20);
+        glow.addColorStop(0, `rgba(217, 72, 59, ${dim ? 0.2 : 0.3})`);
+        glow.addColorStop(1, 'rgba(217, 72, 59, 0)');
+        g.fillStyle = glow;
+        g.fillRect(0, 0, 42, 27);
+        hazardGlows[dim] = c;
+    }
+    return hazardGlows[dim];
+}
+
 function drawHazards(level, visible, time) {
     const names = hazardVariants(level);
     const period = 1.5;
@@ -1284,11 +1369,7 @@ function drawHazards(level, visible, time) {
         const phase = (time + (s.x % 97) * 0.003) % period;
         const dim = phase >= period / 2 ? 1 : 0;
         const cx = s.x + T / 2, cy = s.y + T - 5;
-        const glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 20);
-        glow.addColorStop(0, `rgba(217, 72, 59, ${dim ? 0.2 : 0.3})`);
-        glow.addColorStop(1, 'rgba(217, 72, 59, 0)');
-        ctx.fillStyle = glow;
-        ctx.fillRect(cx - 21, cy - 21, 42, 27);
+        ctx.drawImage(hazardGlow(dim), cx - 21, cy - 21);
         drawGroundShadow(cx, s.y + T, 16);
         drawAnim(ctx, 'hazards', names[i], phase, cx, s.y + T, false, 1, { rings: HAZARD_RINGS[dim] });
     });
@@ -1306,8 +1387,8 @@ function drawWorld() {
     ctx.translate(-camX, -camY);
     ctx.drawImage(level.tileCanvas, 0, 0);
 
-    // Hints ('fade' hints sit centred over their tile and fade out once Wubby has passed them)
-    ctx.font = `10px ${PIXEL_FONT}`;
+    // Hints ('fade' hints sit centred over their tile and fade out once Wubby has passed them); at least 14 CSS px
+    ctx.font = `${Math.max(10, 14 / view.cssPerPx).toFixed(2)}px ${PIXEL_FONT}`;
     level.hints.forEach((h, i) => {
         if (!visible(h.col * T - 125, 250)) return;
         const alpha = h.fade ? 1 - Math.min(1, (lv.hintFade[i] || 0) / 0.6) : 1;
@@ -1401,26 +1482,35 @@ function drawWorld() {
     ctx.restore();
 }
 
+// Canvas banners (LEVEL COMPLETE!, GOT IT!...): centred, heading 20-28 CSS px and subtext 14-16, both shrunk to
+// fit 90% of the width so they are never clipped
 function drawBanner() {
     const b = game.banner;
     if (!b) return;
     const W = view.width;
+    const cssW = W * view.cssPerPx;
+    const fit = (text, cssSize, min, weight = '') => {
+        let size = cssSize;
+        ctx.font = `${weight}${(size / view.cssPerPx).toFixed(2)}px ${PIXEL_FONT}`;
+        const w = ctx.measureText(text).width;
+        if (w > W * 0.9) size = Math.max(min * 0.8, size * (W * 0.9) / w);
+        ctx.font = `${weight}${(size / view.cssPerPx).toFixed(2)}px ${PIXEL_FONT}`;
+        return size / view.cssPerPx;
+    };
     ctx.textAlign = 'center';
-    ctx.font = `600 18px ${PIXEL_FONT}`;
-    const y = Math.round(Math.max(80, view.height * 0.32));
+    const head = fit(b.text, Math.min(28, Math.max(20, cssW * 0.05)), 20, '600 ');
+    const sub = b.sub ? Math.min(16, Math.max(14, cssW * 0.03)) / view.cssPerPx : 0;
+    const top = view.portrait ? view.height * 0.24 : Math.max(view.height * 0.26, 64 / view.cssPerPx);
+    const y = Math.round(top + head);
+    const pad = head * 0.45;
     ctx.fillStyle = 'rgba(40, 22, 12, 0.5)';
-    ctx.fillRect(0, y - 22, W, b.sub ? 48 : 32);
+    ctx.fillRect(0, Math.round(y - head - pad * 0.6), W, Math.round(head + pad * 1.6 + (sub ? sub * 1.5 : 0)));
     ctx.fillStyle = '#ffd84a';
     ctx.fillText(b.text, Math.round(W / 2), y);
     if (b.sub) {
-        ctx.font = `11px ${PIXEL_FONT}`;
+        fit(b.sub, sub * view.cssPerPx, 14);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(b.sub, Math.round(W / 2), y + 17);
-    }
-    if (game.screen === 'intro') {
-        ctx.font = `10px ${PIXEL_FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillText('PRESS JUMP TO SKIP', Math.round(W / 2), view.height - 20);
+        ctx.fillText(b.sub, Math.round(W / 2), Math.round(y + sub * 1.5));
     }
 }
 
@@ -1444,8 +1534,9 @@ function updateHud(dt) {
     if (!game.run || !game.lv) return;
     const run = game.run;
     const heartSlots = Math.max(CONFIG.health.startHearts, run.hearts);
-    let hearts = '';
+    let hearts = '<span class="hearts-full">';
     for (let i = 0; i < heartSlots; i++) hearts += `<span class="${i < run.hearts ? 'ui-icon-heart' : 'ui-icon-heart-empty'}"></span>`;
+    hearts += `</span><span class="hearts-compact"><span class="ui-icon-heart"></span><span class="hud-text">${run.hearts}</span></span>`;
     setHud('hearts', hearts, true);
     setHud('bones', `${heldCount()}/${game.lv.level.bones.length}`);
     setHud('goldens', `${goldenTotal()}/${TOTAL_GOLDENS}`);

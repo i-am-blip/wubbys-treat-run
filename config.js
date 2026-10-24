@@ -1,6 +1,7 @@
 // All gameplay tunables live here. Units: pixels (logical), seconds.
 const CONFIG = {
     scale: 1.7,            // target CSS px per game pixel; snapped to whole device pixels (~38% more world than 2)
+    scalePortrait: 2,      // portrait screens (aspect < 0.8) zoom in a bit so the level fills more of the tall view
     tileSize: 18,
     fixedStep: 1 / 60,     // physics timestep; identical speed on 60/120/144Hz screens
     maxFrameTime: 0.25,    // clamp long frames (tab switches) so physics never explodes
@@ -82,7 +83,7 @@ const CONFIG = {
     pickupRadius: 16,
     fallMargin: 40,                    // pixels below the level before a fall counts
     levelCompleteTime: 2.2,
-    camera: { leadRatio: 0.35, smoothing: 10 },
+    camera: { leadRatio: 0.35, leadRatioPortrait: 0.3, smoothing: 10 }, // Wubby's position from the left edge
 
     card: {
         width: 1080,       // the shared image is just the polaroid, portrait

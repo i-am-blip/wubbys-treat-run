@@ -1029,6 +1029,11 @@ def build_title_logo():
     small, alpha = sample(rgb, fg, s, grid_phase(rgb, fg, s, 1), grid_phase(rgb, fg, s, 0))
     title = to_rgba(small, alpha)
     title.save(OUT / 'title_bg.png')
+    # Portrait screens (aspect < 0.8) use the tall scene, processed the same way (generated resolution, lossless)
+    mrgb = load('title_scene_mobile.png')
+    mfg = np.ones(mrgb.shape[:2], bool)
+    msmall, malpha = sample(mrgb, mfg, s, grid_phase(mrgb, mfg, s, 1), grid_phase(mrgb, mfg, s, 0))
+    to_rgba(msmall, malpha).save(OUT / 'title_mobile.png', optimize=True)
     lrgb = load('logo.png')
     lfg = key_mask(lrgb)
     ls, _ = detect_scale(lrgb, lfg)
@@ -1048,7 +1053,7 @@ def build_title_logo():
     pv.alpha_composite(title.resize((title.width // 2, title.height // 2), Image.NEAREST))
     pv.alpha_composite(lg, (title.width // 2 + 20, 10))
     pv.save(PREVIEW / 'title.png')
-    return [f'title {title.width}x{title.height} (step {s:.2f}), logo {logo.width}x{logo.height} (step {ls:.2f})']
+    return [f'title {title.width}x{title.height} + mobile {msmall.shape[1]}x{msmall.shape[0]} (step {s:.2f}), logo {logo.width}x{logo.height} (step {ls:.2f})']
 
 
 def build_cards():
