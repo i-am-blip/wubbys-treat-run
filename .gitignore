@@ -1,5 +1,24 @@
-/BACKGROUND_FEATURES.md
+# Dependencies and build output
+node_modules/
+dist/
+.vercel/
+.netlify/
+
+# Secrets: only the template is committed
+.env
+.env.*
+!.env.example
+
+# Python (art pipeline)
 .venv/
 __pycache__/
-node_modules/
-.netlify/
+
+# Logs and OS files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local notes
+/BACKGROUND_FEATURES.md
